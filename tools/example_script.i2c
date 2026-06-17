@@ -1,0 +1,63 @@
+# I2C 测试脚本示例
+# 测试 PCA9557 GPIO 扩展器 (7-bit 地址: 0x18)
+# 演示: 配置为输出 → 依次点亮各 pin → 全部熄灭
+
+# === 步骤 1: 配置方向 (Configuration 寄存器 0x03)
+# 写 0x00 到 0x03 → 全部 8 个 pin 设为输出 (0=输出, 1=输入)
+WR 18 03 00
+SLEEP 5
+
+# === 步骤 2: 验证配置
+# 读 Configuration 寄存器确认
+RD 18 03 1
+
+# === 步骤 3: 依次点亮各 LED
+# Output 寄存器 (0x01): 每个 bit 对应一个 pin
+# bit0=1 → 点亮 LED0
+WR 18 01 01
+SLEEP 200
+
+# bit1=1 → 点亮 LED1
+WR 18 01 02
+SLEEP 200
+
+# bit2=1 → 点亮 LED2
+WR 18 01 04
+SLEEP 200
+
+# all on → 全部点亮 (0xFF)
+WR 18 01 FF
+SLEEP 500
+
+# all off → 全部熄灭
+WR 18 01 00
+
+# === 步骤 4: 读取当前输出状态
+RD 18 01 1
+
+# === 步骤 5: 流水灯
+WR 18 01 01
+SLEEP 100
+WR 18 01 02
+SLEEP 100
+WR 18 01 04
+SLEEP 100
+WR 18 01 08
+SLEEP 100
+WR 18 01 10
+SLEEP 100
+WR 18 01 20
+SLEEP 100
+WR 18 01 40
+SLEEP 100
+WR 18 01 80
+SLEEP 100
+
+# 全部熄灭
+WR 18 01 00
+
+SLEEP 10
+
+# === 步骤 6: 批量读取所有寄存器
+# 读取寄存器 0x00-0x03
+RD 18 00 4

@@ -1,0 +1,194 @@
+[1/117] Generating project_elf_src_esp32p4.c
+[2/117] Generating D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/esp-idf/esp_system/ld/memory.ld linker script...
+[3/117] Generating D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/esp-idf/esp_system/ld/sections.ld.in linker script...
+[4/117] Linking C static library esp-idf\esp_psram\libesp_psram.a
+[5/117] Generating ../../partition_table/partition-table.bin
+Partition table binary generated. Contents:
+*******************************************************************************
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,2M,
+*******************************************************************************
+[6/117] Creating directories for 'bootloader'
+[7/117] Linking C static library esp-idf\esp_https_ota\libesp_https_ota.a
+[8/117] No download step for 'bootloader'
+[9/117] Linking C static library esp-idf\esp_http_server\libesp_http_server.a
+[10/117] No update step for 'bootloader'
+[11/117] No patch step for 'bootloader'
+[12/117] Linking C static library esp-idf\esp_http_client\libesp_http_client.a
+[13/117] Linking C static library esp-idf\tcp_transport\libtcp_transport.a
+[14/117] Linking C static library esp-idf\esp_gdbstub\libesp_gdbstub.a
+[15/117] Linking C static library esp-idf\esp_adc\libesp_adc.a
+[16/117] Linking C static library esp-idf\esp-tls\libesp-tls.a
+[17/117] Linking C static library esp-idf\http_parser\libhttp_parser.a
+[18/117] Linking C static library esp-idf\esp_wifi\libesp_wifi.a
+[19/117] Linking C static library esp-idf\nvs_flash\libnvs_flash.a
+[20/117] Linking C static library esp-idf\driver\libdriver.a
+[21/117] Linking C static library esp-idf\esp_driver_parlio\libesp_driver_parlio.a
+[22/117] Linking C static library esp-idf\esp_driver_ledc\libesp_driver_ledc.a
+[23/117] Linking C static library esp-idf\esp_driver_i2c\libesp_driver_i2c.a
+[24/117] Linking C static library esp-idf\esp_driver_sdm\libesp_driver_sdm.a
+[25/117] Linking C static library esp-idf\esp_driver_tsens\libesp_driver_tsens.a
+[26/117] Linking C static library esp-idf\esp_driver_rmt\libesp_driver_rmt.a
+[27/117] Linking C static library esp-idf\esp_driver_sdspi\libesp_driver_sdspi.a
+[28/117] Linking C static library esp-idf\esp_driver_sdmmc\libesp_driver_sdmmc.a
+[29/117] Linking C static library esp-idf\sdmmc\libsdmmc.a
+[30/117] Linking C static library esp-idf\esp_driver_i2s\libesp_driver_i2s.a
+[31/117] Linking C static library esp-idf\esp_driver_ana_cmpr\libesp_driver_ana_cmpr.a
+[32/117] Linking C static library esp-idf\esp_driver_mcpwm\libesp_driver_mcpwm.a
+[33/117] Linking C static library esp-idf\esp_driver_spi\libesp_driver_spi.a
+[34/117] Linking C static library esp-idf\esp_driver_pcnt\libesp_driver_pcnt.a
+[35/117] Linking C static library esp-idf\esp_netif\libesp_netif.a
+[36/117] Linking C static library esp-idf\lwip\liblwip.a
+[37/117] Linking C static library esp-idf\vfs\libvfs.a
+[38/117] Linking C static library esp-idf\esp_vfs_console\libesp_vfs_console.a
+[39/117] Linking C static library esp-idf\esp_driver_usb_serial_jtag\libesp_driver_usb_serial_jtag.a
+[40/117] Linking C static library esp-idf\esp_event\libesp_event.a
+[41/117] Linking C static library esp-idf\esp_driver_uart\libesp_driver_uart.a
+[42/117] Linking C static library esp-idf\esp_ringbuf\libesp_ringbuf.a
+[43/117] Linking C static library esp-idf\esp_driver_gptimer\libesp_driver_gptimer.a
+[44/117] Linking C static library esp-idf\esp_timer\libesp_timer.a
+[45/117] Linking C static library esp-idf\cxx\libcxx.a
+[46/117] Linking C static library esp-idf\pthread\libpthread.a
+[47/117] Linking C static library esp-idf\newlib\libnewlib.a
+[48/117] Linking C static library esp-idf\freertos\libfreertos.a
+[49/117] Linking C static library esp-idf\esp_hw_support\libesp_hw_support.a
+[50/117] Linking C static library esp-idf\esp_security\libesp_security.a
+[51/117] Linking C static library esp-idf\soc\libsoc.a
+[52/117] Linking C static library esp-idf\heap\libheap.a
+[53/117] Linking C static library esp-idf\log\liblog.a
+[54/117] Linking C static library esp-idf\hal\libhal.a
+[55/117] Linking C static library esp-idf\esp_rom\libesp_rom.a
+[56/117] Linking C static library esp-idf\esp_common\libesp_common.a
+[57/117] Linking C static library esp-idf\esp_system\libesp_system.a
+[58/117] Linking C static library esp-idf\spi_flash\libspi_flash.a
+[59/117] Linking C static library esp-idf\esp_mm\libesp_mm.a
+[60/117] Linking C static library esp-idf\bootloader_support\libbootloader_support.a
+[61/117] Linking C static library esp-idf\efuse\libefuse.a
+[62/117] Linking C static library esp-idf\esp_partition\libesp_partition.a
+[63/117] Linking C static library esp-idf\app_update\libapp_update.a
+[64/117] Linking C static library esp-idf\esp_bootloader_format\libesp_bootloader_format.a
+[65/117] Linking C static library esp-idf\esp_app_format\libesp_app_format.a
+[66/117] Linking CXX static library esp-idf\mbedtls\mbedtls\library\libmbedtls.a
+[67/117] Linking CXX static library esp-idf\mbedtls\mbedtls\library\libmbedx509.a
+[68/117] Performing configure step for 'bootloader'
+-- The C compiler identification is GNU 14.2.0
+-- The CXX compiler identification is GNU 14.2.0
+-- The ASM compiler identification is GNU
+-- Found assembler: C:/Users/jq163/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Users/jq163/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Users/jq163/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin/riscv32-esp-elf-g++.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Building ESP-IDF components for target esp32p4
+-- Project sdkconfig file D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/sdkconfig
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/riscv/ld/rom.api.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/soc/esp32p4/ld/esp32p4.peripherals.ld
+-- Bootloader project name: "bootloader" version: 1
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.api.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.rvfp.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.wdt.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.systimer.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.version.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/bootloader/subproject/main/ld/esp32p4/bootloader.ld
+-- Adding linker script C:/Users/jq163/esp/esp-idf/components/bootloader/subproject/main/ld/esp32p4/bootloader.rom.ld
+-- Components: bootloader bootloader_support efuse esp_app_format esp_bootloader_format esp_common esp_hw_support esp_rom esp_security esp_system esptool_py freertos hal log main micro-ecc newlib partition_table riscv soc spi_flash
+-- Component paths: C:/Users/jq163/esp/esp-idf/components/bootloader C:/Users/jq163/esp/esp-idf/components/bootloader_support C:/Users/jq163/esp/esp-idf/components/efuse C:/Users/jq163/esp/esp-idf/components/esp_app_format C:/Users/jq163/esp/esp-idf/components/esp_bootloader_format C:/Users/jq163/esp/esp-idf/components/esp_common C:/Users/jq163/esp/esp-idf/components/esp_hw_support C:/Users/jq163/esp/esp-idf/components/esp_rom C:/Users/jq163/esp/esp-idf/components/esp_security C:/Users/jq163/esp/esp-idf/components/esp_system C:/Users/jq163/esp/esp-idf/components/esptool_py C:/Users/jq163/esp/esp-idf/components/freertos C:/Users/jq163/esp/esp-idf/components/hal C:/Users/jq163/esp/esp-idf/components/log C:/Users/jq163/esp/esp-idf/components/bootloader/subproject/main C:/Users/jq163/esp/esp-idf/components/bootloader/subproject/components/micro-ecc C:/Users/jq163/esp/esp-idf/components/newlib C:/Users/jq163/esp/esp-idf/components/partition_table C:/Users/jq163/esp/esp-idf/components/riscv C:/Users/jq163/esp/esp-idf/components/soc C:/Users/jq163/esp/esp-idf/components/spi_flash
+-- Configuring done (15.9s)
+-- Generating done (0.3s)
+-- Build files have been written to: D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader
+[69/117] Linking CXX static library esp-idf\mbedtls\mbedtls\library\libmbedcrypto.a
+[70/117] Linking CXX static library esp-idf\mbedtls\mbedtls\3rdparty\p256-m\libp256m.a
+[71/117] Linking CXX static library esp-idf\mbedtls\mbedtls\3rdparty\everest\libeverest.a
+[72/117] Generating ../../x509_crt_bundle.S
+[73/117] Building ASM object esp-idf/mbedtls/CMakeFiles/__idf_mbedtls.dir/__/__/x509_crt_bundle.S.obj
+[74/117] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/cmd_parser.c.obj
+[75/117] Linking C static library esp-idf\mbedtls\libmbedtls.a
+[76/117] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/cmd_handler.c.obj
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/main/cmd_handler.c:130:12: warning: 'count_tokens' defined but not used [-Wunused-function]
+  130 | static int count_tokens(const char *line)
+      |            ^~~~~~~~~~~~
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/main/cmd_handler.c:67:12: warning: 'tokenize' defined but not used [-Wunused-function]
+   67 | static int tokenize(const char *line, const char *tokens[], int max_tokens)
+      |            ^~~~~~~~
+[77/117] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/usb_i2c_bridge.c.obj
+[78/117] Linking C static library esp-idf\esp_pm\libesp_pm.a
+[79/117] Linking C static library esp-idf\esp_driver_gpio\libesp_driver_gpio.a
+[80/117] Linking C static library esp-idf\riscv\libriscv.a
+[81/117] Linking C static library esp-idf\wear_levelling\libwear_levelling.a
+[82/117] Linking C static library esp-idf\console\libconsole.a
+[83/117] Linking C static library esp-idf\protobuf-c\libprotobuf-c.a
+[84/117] Linking C static library esp-idf\usb\libusb.a
+[85/117] Linking C static library esp-idf\espressif__tinyusb\libespressif__tinyusb.a
+[86/117] Linking C static library esp-idf\unity\libunity.a
+[87/117] Linking C static library esp-idf\esp_driver_isp\libesp_driver_isp.a
+[88/117] Linking C static library esp-idf\esp_https_server\libesp_https_server.a
+[89/117] Linking C static library esp-idf\i2c_utils\libi2c_utils.a
+[90/117] Linking C static library esp-idf\app_trace\libapp_trace.a
+[91/117] Linking C static library esp-idf\esp_driver_jpeg\libesp_driver_jpeg.a
+[92/117] Linking C static library esp-idf\esp_driver_ppa\libesp_driver_ppa.a
+[93/117] Linking C static library esp-idf\esp_driver_touch_sens\libesp_driver_touch_sens.a
+[94/117] Linking C static library esp-idf\esp_eth\libesp_eth.a
+[95/117] Linking C static library esp-idf\esp_hid\libesp_hid.a
+[96/117] Linking C static library esp-idf\esp_lcd\libesp_lcd.a
+[97/117] Linking C static library esp-idf\espcoredump\libespcoredump.a
+[98/117] Linking C static library esp-idf\fatfs\libfatfs.a
+[99/117] Linking C static library esp-idf\json\libjson.a
+[100/117] Linking C static library esp-idf\protocomm\libprotocomm.a
+[101/117] Linking C static library esp-idf\nvs_sec_provider\libnvs_sec_provider.a
+[102/117] Linking C static library esp-idf\mqtt\libmqtt.a
+[103/117] Linking C static library esp-idf\cmock\libcmock.a
+[104/117] Linking C static library esp-idf\esp_driver_cam\libesp_driver_cam.a
+[105/117] Linking C static library esp-idf\rt\librt.a
+[106/117] Linking C static library esp-idf\spiffs\libspiffs.a
+[107/117] Linking C static library esp-idf\espressif__esp_tinyusb\libespressif__esp_tinyusb.a
+[108/117] Linking C static library esp-idf\esp_local_ctrl\libesp_local_ctrl.a
+[109/117] Linking C static library esp-idf\main\libmain.a
+[110/117] Performing build step for 'bootloader'
+[1/18] Generating project_elf_src_esp32p4.c
+[2/18] Linking C static library esp-idf\log\liblog.a
+[3/18] Building C object CMakeFiles/bootloader.elf.dir/project_elf_src_esp32p4.c.obj
+[4/18] Linking C static library esp-idf\esp_rom\libesp_rom.a
+[5/18] Linking C static library esp-idf\esp_common\libesp_common.a
+[6/18] Linking C static library esp-idf\esp_hw_support\libesp_hw_support.a
+[7/18] Linking C static library esp-idf\esp_system\libesp_system.a
+[8/18] Linking C static library esp-idf\efuse\libefuse.a
+[9/18] Linking C static library esp-idf\bootloader_support\libbootloader_support.a
+[10/18] Linking C static library esp-idf\esp_bootloader_format\libesp_bootloader_format.a
+[11/18] Linking C static library esp-idf\spi_flash\libspi_flash.a
+[12/18] Linking C static library esp-idf\hal\libhal.a
+[13/18] Linking C static library esp-idf\micro-ecc\libmicro-ecc.a
+[14/18] Linking C static library esp-idf\soc\libsoc.a
+[15/18] Linking C static library esp-idf\main\libmain.a
+[16/18] Linking C executable bootloader.elf
+[17/18] Generating binary image from built executable
+esptool.py v4.11.0
+Creating esp32p4 image...
+Merged 2 ELF sections
+Successfully created esp32p4 image.
+Generated D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader/bootloader.bin
+[18/18] C:\WINDOWS\system32\cmd.exe /C "cd /D "D:\XC\E6\E6LD 1.1\bootload\USBtoI2C\build\bootloader\esp-idf\esptool_py" && C:\Users\jq163\.espressif\python_env\idf5.4_py3.11_env\Scripts\python.exe C:/Users/jq163/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 "D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader/bootloader.bin""
+Bootloader binary size 0x5690 bytes. 0x970 bytes (10%) free.
+[111/117] No install step for 'bootloader'
+[112/117] Completed 'bootloader'
+[113/117] Generating ld/sections.ld
+[114/117] Building C object CMakeFiles/usb_to_i2c_bridge.elf.dir/project_elf_src_esp32p4.c.obj
+[115/117] Linking CXX executable usb_to_i2c_bridge.elf
+[116/117] Generating binary image from built executable
+esptool.py v4.11.0
+Creating esp32p4 image...
+Merged 3 ELF sections
+Successfully created esp32p4 image.
+Generated D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/usb_to_i2c_bridge.bin
+[117/117] C:\WINDOWS\system32\cmd.exe /C "cd /D "D:\XC\E6\E6LD 1.1\bootload\USBtoI2C\build\esp-idf\esptool_py" && C:\Users\jq163\.espressif\python_env\idf5.4_py3.11_env\Scripts\python.exe C:/Users/jq163/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app "D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/partition_table/partition-table.bin" "D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/usb_to_i2c_bridge.bin""
+usb_to_i2c_bridge.bin binary size 0x46570 bytes. Smallest app partition is 0x200000 bytes. 0x1b9a90 bytes (86%) free.

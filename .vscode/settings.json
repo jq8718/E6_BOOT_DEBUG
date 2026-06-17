@@ -1,0 +1,18 @@
+{
+  "idf.currentSetup": "C:\\Users\\jq163\\esp\\esp-idf",
+  "idf.openOcdConfigs": [
+    "board/esp32p4-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "OPENOCD_USB_ADAPTER_LOCATION": "1-5.3",
+    "IDF_TARGET": "esp32p4"
+  },
+  "clangd.path": "C:\\Users\\jq163\\.espressif\\tools\\esp-clang\\esp-18.1.2_20240912\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=d:\\XC\\E6\\E6LD 1.1\\bootload\\USBtoI2C\\build"
+  ],
+  "idf.flashType": "UART",
+  "idf.portWin": "COM5"
+}

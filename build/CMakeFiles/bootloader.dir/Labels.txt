@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/CMakeFiles/bootloader
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/CMakeFiles/bootloader.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/CMakeFiles/bootloader-complete.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+D:/XC/E6/E6LD 1.1/bootload/USBtoI2C/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
