@@ -10,7 +10,7 @@
 #include "cmd_parser.h"
 
 #define RX_BUF_SIZE  2048
-#define RESP_BUF_SIZE 4096
+#define RESP_BUF_SIZE 2048
 
 static uint8_t  rx_buf[RX_BUF_SIZE];
 static size_t   rx_head = 0;   /* Write position */
@@ -134,7 +134,7 @@ bool cmd_parser_feed(const uint8_t *data, size_t len, char *response, size_t res
             continue;
         }
 
-        char line[2048];
+        static char line[2048];
         size_t line_len = extract_line(line, sizeof(line), (size_t)nl_idx);
 
         if (line_len == 0) continue;  /* Skip truly empty lines */
@@ -143,7 +143,7 @@ bool cmd_parser_feed(const uint8_t *data, size_t len, char *response, size_t res
         if (*cmd == '\0') continue;   /* Skip whitespace-only lines */
 
         if (user_callback) {
-            char line_resp[RESP_BUF_SIZE];
+            static char line_resp[RESP_BUF_SIZE];
             user_callback(cmd, line_resp, sizeof(line_resp));
 
             /* Append line_resp to accumulated response */

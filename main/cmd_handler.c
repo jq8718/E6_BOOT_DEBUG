@@ -234,7 +234,7 @@ static void handle_write(const char *line, char *response, size_t resp_size)
     }
 
     /* Collect data bytes from remaining tokens */
-    uint8_t data[540];
+    static uint8_t data[540];
     size_t data_len = 0;
     for (int i = 3; ; i++) {
         const char *tok = get_token(line, i, tok_buf2, sizeof(tok_buf2));
