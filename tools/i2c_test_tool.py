@@ -430,10 +430,11 @@ class I2CTestApp:
 
     def _on_scan(self):
         if not self._ck(): return
+        self.scan_res.delete(1.0, tk.END)
+        self.scan_res.update_idletasks()
         self.log_add("SCAN...", "tx")
         try:
             r = self.bridge.scan()
-            self.scan_res.delete(1.0, tk.END)
             self.scan_res.insert(1.0, r)
             self.log_add("Scan done", "rx")
         except Exception as e:
