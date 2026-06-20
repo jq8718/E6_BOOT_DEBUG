@@ -218,17 +218,9 @@ class IapProtocol:
         return err_code, rpayload[1:]
 
     # ------------------------------------------------------------------
-    # Full firmware upgrade flow
+    # Individual commands
     # ------------------------------------------------------------------
-    def upgrade(self, bin_path: str, chunk_size=256,
-                progress_callback=None, stop_event=None):
-        with open(bin_path, 'rb') as f:
-            app_bin = f.read()
-        app_size = len(app_bin)
-        if app_size == 0:
-            raise IapError("empty app.bin")
-
-        # 1. HANDSHAKE
+    def cmd_handshake(self):
         err, resp = self.transaction(self.CMD_HANDSHAKE, b'')
         if err != 0:
             raise IapError(f"HANDSHAKE failed: {err}")
@@ -236,6 +228,48 @@ class IapProtocol:
             raise IapError("HANDSHAKE response too short")
         version = resp[0]
         payload_max = int.from_bytes(resp[1:3], 'little')
+        return version, payload_max
+
+    def cmd_erase_flash(self, app_size: int):
+        err, _ = self.transaction(self.CMD_ERASE_FLASH,
+                                  app_size.to_bytes(4, 'little'),
+                                  poll_timeout=20.0)
+        if err != 0:
+            raise IapError(f"ERASE_FLASH failed: {err}")
+
+    def cmd_app_download(self, flash_addr: int, data: bytes):
+        payload = (flash_addr & 0xFFFFFFFF).to_bytes(4, 'little') + data
+        err, _ = self.transaction(self.CMD_APP_DOWNLOAD, payload,
+                                  poll_timeout=5.0)
+        if err != 0:
+            raise IapError(f"APP_DOWNLOAD @0x{flash_addr:08X} failed: {err}")
+
+    def cmd_crc_flash(self, app_size: int):
+        err, resp = self.transaction(self.CMD_CRC_FLASH,
+                                      app_size.to_bytes(4, 'little'),
+                                      poll_timeout=10.0)
+        if err != 0:
+            raise IapError(f"CRC_FLASH failed: {err}")
+        if len(resp) < 2:
+            raise IapError("CRC_FLASH response too short")
+        return int.from_bytes(resp[0:2], 'little')
+
+    def cmd_jump_to_app(self):
+        err, _ = self.transaction(self.CMD_JUMP_TO_APP, b'', poll_timeout=5.0)
+        if err != 0:
+            raise IapError(f"JUMP_TO_APP failed: {err}")
+
+    # ------------------------------------------------------------------
+    # Full firmware upgrade flow
+    # ------------------------------------------------------------------
+    def upgrade_bytes(self, app_bin: bytes, chunk_size=256,
+                      progress_callback=None, stop_event=None):
+        app_size = len(app_bin)
+        if app_size == 0:
+            raise IapError("empty app.bin")
+
+        # 1. HANDSHAKE
+        version, payload_max = self.cmd_handshake()
         self.log("inf", f"HANDSHAKE OK version={version} payload_max={payload_max}")
 
         # chunk data bytes limited by payload_max - 4(FlashAddr)
@@ -245,11 +279,7 @@ class IapProtocol:
 
         # 2. ERASE_FLASH
         self.log("inf", f"ERASE_FLASH size={app_size}")
-        err, _ = self.transaction(self.CMD_ERASE_FLASH,
-                                  app_size.to_bytes(4, 'little'),
-                                  poll_timeout=20.0)
-        if err != 0:
-            raise IapError(f"ERASE_FLASH failed: {err}")
+        self.cmd_erase_flash(app_size)
 
         # 3. APP_DOWNLOAD loop
         offset = 0
@@ -259,15 +289,7 @@ class IapProtocol:
                 raise IapError("stopped by user")
 
             block = app_bin[offset:offset + chunk_size]
-            flash_addr = (self.app_addr + offset).to_bytes(4, 'little')
-            payload = flash_addr + block
-
-            err, _ = self.transaction(self.CMD_APP_DOWNLOAD, payload,
-                                      poll_timeout=5.0)
-            if err != 0:
-                self.write_ctrl(self.CTRL_ABORT)
-                raise IapError(f"APP_DOWNLOAD @0x{offset:08X} failed: {err}")
-
+            self.cmd_app_download(self.app_addr + offset, block)
             offset += len(block)
             if progress_callback:
                 progress_callback(offset, app_size)
@@ -275,22 +297,19 @@ class IapProtocol:
         # 4. CRC_FLASH
         local_crc = self.crc16(app_bin)
         self.log("inf", f"local CRC = {local_crc:04X}")
-        err, resp = self.transaction(self.CMD_CRC_FLASH,
-                                      app_size.to_bytes(4, 'little'),
-                                      poll_timeout=10.0)
-        if err != 0:
-            raise IapError(f"CRC_FLASH failed: {err}")
-        if len(resp) < 2:
-            raise IapError("CRC_FLASH response too short")
-        flash_crc = int.from_bytes(resp[0:2], 'little')
+        flash_crc = self.cmd_crc_flash(app_size)
         if flash_crc != local_crc:
             raise IapError(f"CRC mismatch local={local_crc:04X} flash={flash_crc:04X}")
         self.log("inf", f"CRC match {flash_crc:04X}")
 
         # 5. JUMP_TO_APP
-        err, _ = self.transaction(self.CMD_JUMP_TO_APP, b'', poll_timeout=5.0)
-        if err != 0:
-            raise IapError(f"JUMP_TO_APP failed: {err}")
+        self.cmd_jump_to_app()
         self.log("inf", "JUMP_TO_APP accepted")
 
         return True
+
+    def upgrade(self, bin_path: str, chunk_size=256,
+                progress_callback=None, stop_event=None):
+        with open(bin_path, 'rb') as f:
+            app_bin = f.read()
+        return self.upgrade_bytes(app_bin, chunk_size, progress_callback, stop_event)

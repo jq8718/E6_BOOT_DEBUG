@@ -133,9 +133,11 @@ class I2CTestApp:
 
         # IAP state
         self.iap_file = None
+        self.iap_bin_data = None
         self.iap_running = False
         self.iap_stop_event = None
         self.iap_total_size = 0
+        self.iap_payload_max = 0
 
         self._refresh_ports()
         self._build_ui()
@@ -363,7 +365,7 @@ class I2CTestApp:
 
         er(0, 0, "I2C 设备地址 (hex):", pady=4)
         self.iap_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.iap_dev.insert(0, "18")
+        self.iap_dev.insert(0, "20")
         self.iap_dev.grid(row=0, column=1, sticky=tk.W, padx=4)
 
         er(0, 2, "APP 基地址 (hex):", padx=(16, 0), pady=4)
@@ -389,8 +391,18 @@ class I2CTestApp:
         bf = ttk.Frame(f)
         bf.grid(row=3, column=0, columnspan=4, sticky=tk.W, pady=4)
         ttk.Button(bf, text="选择 app.bin...", command=self._on_iap_select_file).pack(side=tk.LEFT, padx=4)
-        self.btn_iap_start = ttk.Button(bf, text=chr(9654)+" 开始升级", command=self._on_iap_start)
-        self.btn_iap_start.pack(side=tk.LEFT, padx=4)
+        self.btn_iap_hs = ttk.Button(bf, text="HANDSHAKE", command=self._on_iap_handshake)
+        self.btn_iap_hs.pack(side=tk.LEFT, padx=2)
+        self.btn_iap_erase = ttk.Button(bf, text="ERASE_FLASH", command=self._on_iap_erase)
+        self.btn_iap_erase.pack(side=tk.LEFT, padx=2)
+        self.btn_iap_dl = ttk.Button(bf, text="APP_DOWNLOAD", command=self._on_iap_download)
+        self.btn_iap_dl.pack(side=tk.LEFT, padx=2)
+        self.btn_iap_crc = ttk.Button(bf, text="CRC_FLASH", command=self._on_iap_crc)
+        self.btn_iap_crc.pack(side=tk.LEFT, padx=2)
+        self.btn_iap_jump = ttk.Button(bf, text="JUMP_TO_APP", command=self._on_iap_jump)
+        self.btn_iap_jump.pack(side=tk.LEFT, padx=2)
+        self.btn_iap_auto = ttk.Button(bf, text=chr(9654)+" AUTO", command=self._on_iap_auto)
+        self.btn_iap_auto.pack(side=tk.LEFT, padx=4)
         ttk.Button(bf, text=chr(9632)+" 停止", command=self._on_iap_stop).pack(side=tk.LEFT, padx=4)
 
         ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=4, column=0, columnspan=4, sticky=tk.EW, pady=8)
@@ -402,13 +414,21 @@ class I2CTestApp:
         ttk.Label(f, textvariable=self.iap_progress_str).grid(row=7, column=0, sticky=tk.W)
 
         ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=8, column=0, columnspan=4, sticky=tk.EW, pady=8)
-        ttk.Label(f, text="IAP 结果:", font=("", 9, "bold")).grid(row=9, column=0, sticky=tk.W)
-        self.iap_res = tk.Text(f, height=14, width=60, font=("Consolas", 9))
-        self.iap_res.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+
+        # bin content display
+        ttk.Label(f, text="app.bin 内容 (hex):", font=("", 9, "bold")).grid(row=9, column=0, sticky=tk.W)
+        self.iap_bin = tk.Text(f, height=8, width=70, font=("Consolas", 9))
+        self.iap_bin.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=11, column=0, columnspan=4, sticky=tk.EW, pady=8)
+        ttk.Label(f, text="IAP 结果:", font=("", 9, "bold")).grid(row=12, column=0, sticky=tk.W)
+        self.iap_res = tk.Text(f, height=8, width=70, font=("Consolas", 9))
+        self.iap_res.grid(row=13, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
 
         f.columnconfigure(1, weight=1)
         f.columnconfigure(3, weight=1)
         f.rowconfigure(10, weight=1)
+        f.rowconfigure(13, weight=2)
 
     # ----- Handlers -----
 
@@ -690,61 +710,216 @@ class I2CTestApp:
         self.script_running = False
         self.log_add("Stopped", "err")
 
+    # ----- IAP helpers -----
+
+    def _iap_create(self):
+        dev = int(self.iap_dev.get().strip(), 16)
+        app_addr = int(self.iap_addr.get().strip(), 16)
+        return IapProtocol(self.bridge, dev, app_addr,
+                           log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+
+    def _iap_set_buttons(self, enabled: bool):
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for b in (self.btn_iap_hs, self.btn_iap_erase, self.btn_iap_dl,
+                  self.btn_iap_crc, self.btn_iap_jump, self.btn_iap_auto):
+            b.config(state=state)
+
+    def _iap_get_chunk(self):
+        chunk = int(self.iap_chunk.get().strip())
+        if chunk < 1 or chunk > 508:
+            raise ValueError("每包字节数必须在 1~508")
+        return chunk
+
+    def _iap_reset_progress(self):
+        self.pbar_iap["value"] = 0
+        self.iap_progress_str.set("就绪")
+
+    def _iap_log_res(self, msg):
+        ts = datetime.now().strftime("%H:%M:%S")
+        self.iap_res.insert(tk.END, f"[{ts}] {msg}\n")
+        self.iap_res.see(tk.END)
+
     # ----- IAP handlers -----
 
     def _on_iap_select_file(self):
         path = filedialog.askopenfilename(
             title="选择 app.bin",
             filetypes=[("BIN files", "*.bin"), ("All files", "*.*")])
-        if path:
-            self.iap_file = path
-            self.iap_file_str.set(path)
-
-    def _on_iap_start(self):
-        if not self._ck():
+        if not path:
             return
-        if not self.iap_file or not os.path.isfile(self.iap_file):
+        self.iap_file = path
+        self.iap_file_str.set(path)
+        try:
+            with open(path, 'rb') as f:
+                self.iap_bin_data = f.read()
+        except Exception as e:
+            messagebox.showerror("Error", f"读取文件失败: {e}")
+            return
+        self._iap_display_bin()
+        self._iap_log_res(f"已加载 {path}, 大小 {len(self.iap_bin_data)} bytes")
+        self._iap_reset_progress()
+
+    def _iap_display_bin(self):
+        self.iap_bin.delete("1.0", tk.END)
+        if not self.iap_bin_data:
+            return
+        lines = []
+        for i in range(0, len(self.iap_bin_data), 16):
+            chunk = self.iap_bin_data[i:i + 16]
+            hex_part = " ".join(f"{b:02X}" for b in chunk)
+            ascii_part = "".join(chr(b) if 32 <= b < 127 else '.' for b in chunk)
+            lines.append(f"{i:08X}: {hex_part:<48} {ascii_part}")
+        self.iap_bin.insert("1.0", "\n".join(lines))
+
+    def _on_iap_handshake(self):
+        if not self._ck(): return
+        self.iap_res.delete("1.0", tk.END)
+        self._iap_set_buttons(False)
+        self._iap_reset_progress()
+        t = threading.Thread(target=self._iap_worker_handshake, daemon=True)
+        t.start()
+
+    def _iap_worker_handshake(self):
+        try:
+            iap = self._iap_create()
+            version, payload_max = iap.cmd_handshake()
+            self.iap_payload_max = payload_max
+            self.cmd_queue.put(("iap_done", True,
+                f"HANDSHAKE OK: version={version}, PAYLOAD_MAX={payload_max}"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"HANDSHAKE failed: {e}"))
+
+    def _on_iap_erase(self):
+        if not self._ck(): return
+        if not self.iap_bin_data:
+            messagebox.showwarning("Warning", "请先选择 app.bin")
+            return
+        self.iap_res.delete("1.0", tk.END)
+        self._iap_set_buttons(False)
+        self._iap_reset_progress()
+        t = threading.Thread(target=self._iap_worker_erase,
+                             args=(len(self.iap_bin_data),), daemon=True)
+        t.start()
+
+    def _iap_worker_erase(self, app_size):
+        try:
+            iap = self._iap_create()
+            iap.cmd_erase_flash(app_size)
+            self.cmd_queue.put(("iap_done", True,
+                f"ERASE_FLASH OK: size={app_size}"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"ERASE_FLASH failed: {e}"))
+
+    def _on_iap_download(self):
+        if not self._ck(): return
+        if not self.iap_bin_data:
             messagebox.showwarning("Warning", "请先选择 app.bin")
             return
         try:
-            dev = int(self.iap_dev.get().strip(), 16)
-            app_addr = int(self.iap_addr.get().strip(), 16)
-            chunk = int(self.iap_chunk.get().strip())
-            if chunk < 1 or chunk > 508:
-                raise ValueError("chunk must be 1~508")
+            chunk = self._iap_get_chunk()
         except ValueError as e:
-            messagebox.showerror("Error", f"参数错误: {e}")
+            messagebox.showerror("Error", str(e))
             return
-
-        self.iap_total_size = os.path.getsize(self.iap_file)
         self.iap_res.delete("1.0", tk.END)
-        self.iap_res.insert("1.0", "开始 IAP 升级...\n")
-        self.pbar_iap["maximum"] = self.iap_total_size
-        self.pbar_iap["value"] = 0
-        self.iap_progress_str.set(f"0 / {self.iap_total_size} bytes")
-        self.iap_running = True
+        self._iap_set_buttons(False)
         self.iap_stop_event = threading.Event()
-        self.btn_iap_start.config(state=tk.DISABLED)
-
-        t = threading.Thread(target=self._iap_worker,
-                             args=(dev, app_addr, chunk, self.iap_file), daemon=True)
+        self.pbar_iap["maximum"] = len(self.iap_bin_data)
+        self.pbar_iap["value"] = 0
+        t = threading.Thread(target=self._iap_worker_download,
+                             args=(chunk,), daemon=True)
         t.start()
 
-    def _iap_worker(self, dev, app_addr, chunk, path):
-        def log_cb(kind, msg):
-            self.cmd_queue.put(("log", f"[IAP] {msg}", kind))
-
-        def progress_cb(done, total):
+    def _iap_worker_download(self, chunk):
+        def progress(done, total):
             self.cmd_queue.put(("iap_prog", done, total))
-
         try:
-            iap = IapProtocol(self.bridge, dev, app_addr, log_callback=log_cb)
-            iap.upgrade(path, chunk_size=chunk,
-                        progress_callback=progress_cb,
-                        stop_event=self.iap_stop_event)
-            self.cmd_queue.put(("iap_done", True, "IAP 升级成功"))
+            iap = self._iap_create()
+            app_size = len(self.iap_bin_data)
+            offset = 0
+            while offset < app_size:
+                if self.iap_stop_event.is_set():
+                    raise IapError("stopped by user")
+                block = self.iap_bin_data[offset:offset + chunk]
+                iap.cmd_app_download(
+                    int(self.iap_addr.get().strip(), 16) + offset, block)
+                offset += len(block)
+                progress(offset, app_size)
+            self.cmd_queue.put(("iap_done", True,
+                f"APP_DOWNLOAD OK: {app_size} bytes"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, str(e)))
+            self.cmd_queue.put(("iap_done", False, f"APP_DOWNLOAD failed: {e}"))
+
+    def _on_iap_crc(self):
+        if not self._ck(): return
+        if not self.iap_bin_data:
+            messagebox.showwarning("Warning", "请先选择 app.bin")
+            return
+        self.iap_res.delete("1.0", tk.END)
+        self._iap_set_buttons(False)
+        self._iap_reset_progress()
+        t = threading.Thread(target=self._iap_worker_crc,
+                             args=(len(self.iap_bin_data),), daemon=True)
+        t.start()
+
+    def _iap_worker_crc(self, app_size):
+        try:
+            iap = self._iap_create()
+            local_crc = iap.crc16(self.iap_bin_data)
+            flash_crc = iap.cmd_crc_flash(app_size)
+            if flash_crc != local_crc:
+                raise IapError(
+                    f"CRC mismatch local={local_crc:04X} flash={flash_crc:04X}")
+            self.cmd_queue.put(("iap_done", True,
+                f"CRC_FLASH OK: {flash_crc:04X}"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"CRC_FLASH failed: {e}"))
+
+    def _on_iap_jump(self):
+        if not self._ck(): return
+        self.iap_res.delete("1.0", tk.END)
+        self._iap_set_buttons(False)
+        self._iap_reset_progress()
+        t = threading.Thread(target=self._iap_worker_jump, daemon=True)
+        t.start()
+
+    def _iap_worker_jump(self):
+        try:
+            iap = self._iap_create()
+            iap.cmd_jump_to_app()
+            self.cmd_queue.put(("iap_done", True, "JUMP_TO_APP OK"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"JUMP_TO_APP failed: {e}"))
+
+    def _on_iap_auto(self):
+        if not self._ck(): return
+        if not self.iap_bin_data:
+            messagebox.showwarning("Warning", "请先选择 app.bin")
+            return
+        try:
+            chunk = self._iap_get_chunk()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
+        self.iap_res.delete("1.0", tk.END)
+        self._iap_set_buttons(False)
+        self.iap_stop_event = threading.Event()
+        self.pbar_iap["maximum"] = len(self.iap_bin_data)
+        self.pbar_iap["value"] = 0
+        t = threading.Thread(target=self._iap_worker_auto,
+                             args=(chunk,), daemon=True)
+        t.start()
+
+    def _iap_worker_auto(self, chunk):
+        def progress(done, total):
+            self.cmd_queue.put(("iap_prog", done, total))
+        try:
+            iap = self._iap_create()
+            iap.upgrade_bytes(self.iap_bin_data, chunk_size=chunk,
+                              progress_callback=progress,
+                              stop_event=self.iap_stop_event)
+            self.cmd_queue.put(("iap_done", True, "AUTO 升级成功"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"AUTO failed: {e}"))
 
     def _on_iap_stop(self):
         if self.iap_stop_event:
@@ -817,14 +992,14 @@ class I2CTestApp:
                 elif t == "iap_done":
                     ok, msg = item[1], item[2]
                     self.iap_running = False
-                    self.btn_iap_start.config(state=tk.NORMAL)
+                    self._iap_set_buttons(True)
                     if ok:
-                        self.iap_progress_str.set("升级成功")
-                        self.iap_res.insert(tk.END, f"\n{msg}\n")
+                        self.iap_progress_str.set("完成")
+                        self._iap_log_res(f"OK: {msg}")
                         self.log_add(msg, "rx")
                     else:
                         self.iap_progress_str.set(f"失败: {msg}")
-                        self.iap_res.insert(tk.END, f"\n失败: {msg}\n")
+                        self._iap_log_res(f"ERR: {msg}")
                         self.log_add(f"IAP failed: {msg}", "err")
         except queue.Empty:
             pass
