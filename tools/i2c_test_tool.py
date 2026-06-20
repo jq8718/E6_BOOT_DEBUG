@@ -116,14 +116,14 @@ def parse_script(path):
 
 
 class I2CTestApp:
-    W = 1020
+    W = 1280
     H = 740
 
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("USB-I2C Bridge 测试工具 v1.0")
         self.root.geometry(f"{self.W}x{self.H}")
-        self.root.minsize(900, 650)
+        self.root.minsize(1100, 650)
 
         self.bridge = None
         self.cmd_queue = queue.Queue()
@@ -359,6 +359,7 @@ class I2CTestApp:
     def _build_iap_tab(self, nb):
         f = self._add_tab(nb, "IAP 升级")
         vh = (f.register(self._vhx), "%P")
+        vh32 = (f.register(self._vhx32), "%P")
 
         def er(r, c, txt, **kw):
             ttk.Label(f, text=txt).grid(row=r, column=c, sticky=tk.W, **kw)
@@ -366,22 +367,22 @@ class I2CTestApp:
         er(0, 0, "I2C 设备地址 (hex):", pady=4)
         self.iap_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
         self.iap_dev.insert(0, "20")
-        self.iap_dev.grid(row=0, column=1, sticky=tk.W, padx=4)
+        self.iap_dev.grid(row=0, column=1, sticky=tk.W, padx=(2, 8))
 
-        er(0, 2, "APP 基地址 (hex):", padx=(16, 0), pady=4)
-        self.iap_addr = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.iap_addr.insert(0, "1000")
-        self.iap_addr.grid(row=0, column=3, sticky=tk.W, padx=4)
+        er(0, 2, "APP 基地址 (hex):", padx=(8, 0), pady=4)
+        self.iap_addr = ttk.Entry(f, width=12, validate="key", validatecommand=vh32)
+        self.iap_addr.insert(0, "2000")
+        self.iap_addr.grid(row=0, column=3, sticky=tk.W, padx=(2, 8))
 
-        er(1, 0, "每包字节数:", pady=4)
+        er(1, 0, "每包固件数据字节数:", pady=4)
         self.iap_chunk = ttk.Entry(f, width=12)
-        self.iap_chunk.insert(0, "256")
-        self.iap_chunk.grid(row=1, column=1, sticky=tk.W, padx=4)
+        self.iap_chunk.insert(0, "512")
+        self.iap_chunk.grid(row=1, column=1, sticky=tk.W, padx=(2, 8))
 
-        er(1, 2, "超时(ms):", padx=(16, 0), pady=4)
+        er(1, 2, "超时(ms):", padx=(8, 0), pady=4)
         self.iap_timeout = ttk.Entry(f, width=12)
         self.iap_timeout.insert(0, "10000")
-        self.iap_timeout.grid(row=1, column=3, sticky=tk.W, padx=4)
+        self.iap_timeout.grid(row=1, column=3, sticky=tk.W, padx=(2, 8))
 
         # file selection
         self.iap_file_str = tk.StringVar(value="未选择 app.bin")
@@ -390,20 +391,20 @@ class I2CTestApp:
 
         bf = ttk.Frame(f)
         bf.grid(row=3, column=0, columnspan=4, sticky=tk.W, pady=4)
-        ttk.Button(bf, text="选择 app.bin...", command=self._on_iap_select_file).pack(side=tk.LEFT, padx=4)
-        self.btn_iap_hs = ttk.Button(bf, text="HANDSHAKE", command=self._on_iap_handshake)
-        self.btn_iap_hs.pack(side=tk.LEFT, padx=2)
-        self.btn_iap_erase = ttk.Button(bf, text="ERASE_FLASH", command=self._on_iap_erase)
-        self.btn_iap_erase.pack(side=tk.LEFT, padx=2)
-        self.btn_iap_dl = ttk.Button(bf, text="APP_DOWNLOAD", command=self._on_iap_download)
-        self.btn_iap_dl.pack(side=tk.LEFT, padx=2)
-        self.btn_iap_crc = ttk.Button(bf, text="CRC_FLASH", command=self._on_iap_crc)
-        self.btn_iap_crc.pack(side=tk.LEFT, padx=2)
-        self.btn_iap_jump = ttk.Button(bf, text="JUMP_TO_APP", command=self._on_iap_jump)
-        self.btn_iap_jump.pack(side=tk.LEFT, padx=2)
-        self.btn_iap_auto = ttk.Button(bf, text=chr(9654)+" AUTO", command=self._on_iap_auto)
-        self.btn_iap_auto.pack(side=tk.LEFT, padx=4)
-        ttk.Button(bf, text=chr(9632)+" 停止", command=self._on_iap_stop).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bf, text="选择文件", command=self._on_iap_select_file).pack(side=tk.LEFT, padx=2)
+        self.btn_iap_hs = ttk.Button(bf, text="握手", command=self._on_iap_handshake)
+        self.btn_iap_hs.pack(side=tk.LEFT, padx=1)
+        self.btn_iap_erase = ttk.Button(bf, text="擦除", command=self._on_iap_erase)
+        self.btn_iap_erase.pack(side=tk.LEFT, padx=1)
+        self.btn_iap_dl = ttk.Button(bf, text="下载", command=self._on_iap_download)
+        self.btn_iap_dl.pack(side=tk.LEFT, padx=1)
+        self.btn_iap_crc = ttk.Button(bf, text="校验", command=self._on_iap_crc)
+        self.btn_iap_crc.pack(side=tk.LEFT, padx=1)
+        self.btn_iap_jump = ttk.Button(bf, text="跳转", command=self._on_iap_jump)
+        self.btn_iap_jump.pack(side=tk.LEFT, padx=1)
+        self.btn_iap_auto = ttk.Button(bf, text="自动", command=self._on_iap_auto)
+        self.btn_iap_auto.pack(side=tk.LEFT, padx=2)
+        ttk.Button(bf, text="停止", command=self._on_iap_stop).pack(side=tk.LEFT, padx=2)
 
         ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=4, column=0, columnspan=4, sticky=tk.EW, pady=8)
 
@@ -736,8 +737,8 @@ class I2CTestApp:
 
     def _iap_get_chunk(self):
         chunk = int(self.iap_chunk.get().strip())
-        if chunk < 1 or chunk > 508:
-            raise ValueError("每包字节数必须在 1~508")
+        if chunk < 1 or chunk > 512:
+            raise ValueError("每包固件数据字节数必须在 1~512")
         return chunk
 
     def _iap_reset_progress(self):
@@ -802,9 +803,9 @@ class I2CTestApp:
             version, payload_max = iap.cmd_handshake()
             self.iap_payload_max = payload_max
             self.cmd_queue.put(("iap_done", True,
-                f"HANDSHAKE OK: version={version}, PAYLOAD_MAX={payload_max}"))
+                f"握手成功: version={version}, IAP_FLASH_DATA_MAX={payload_max}", "hs"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"HANDSHAKE failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"HANDSHAKE failed: {e}", "hs"))
 
     def _on_iap_erase(self):
         if not self._ck(): return
@@ -829,9 +830,9 @@ class I2CTestApp:
                               log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             iap.cmd_erase_flash(app_size)
             self.cmd_queue.put(("iap_done", True,
-                f"ERASE_FLASH OK: size={app_size}"))
+                f"擦除成功: size={app_size}"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"ERASE_FLASH failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"擦除失败: {e}"))
 
     def _on_iap_download(self):
         if not self._ck(): return
@@ -869,9 +870,9 @@ class I2CTestApp:
                 offset += len(block)
                 progress(offset, app_size)
             self.cmd_queue.put(("iap_done", True,
-                f"APP_DOWNLOAD OK: {app_size} bytes"))
+                f"下载成功: {app_size} bytes"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"APP_DOWNLOAD failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"下载失败: {e}"))
 
     def _on_iap_crc(self):
         if not self._ck(): return
@@ -900,9 +901,9 @@ class I2CTestApp:
                 raise IapError(
                     f"CRC mismatch local={local_crc:04X} flash={flash_crc:04X}")
             self.cmd_queue.put(("iap_done", True,
-                f"CRC_FLASH OK: {flash_crc:04X}"))
+                f"校验成功: CRC={flash_crc:04X}"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"CRC_FLASH failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"校验失败: {e}"))
 
     def _on_iap_jump(self):
         if not self._ck(): return
@@ -923,9 +924,9 @@ class I2CTestApp:
             iap = IapProtocol(self.bridge, dev, app_addr,
                               log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             iap.cmd_jump_to_app()
-            self.cmd_queue.put(("iap_done", True, "JUMP_TO_APP OK"))
+            self.cmd_queue.put(("iap_done", True, "跳转成功"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"JUMP_TO_APP failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"跳转失败: {e}"))
 
     def _on_iap_auto(self):
         if not self._ck(): return
@@ -956,9 +957,9 @@ class I2CTestApp:
             iap.upgrade_bytes(self.iap_bin_data, chunk_size=chunk,
                               progress_callback=progress,
                               stop_event=self.iap_stop_event)
-            self.cmd_queue.put(("iap_done", True, "AUTO 升级成功"))
+            self.cmd_queue.put(("iap_done", True, "自动升级成功"))
         except Exception as e:
-            self.cmd_queue.put(("iap_done", False, f"AUTO failed: {e}"))
+            self.cmd_queue.put(("iap_done", False, f"自动升级失败: {e}"))
 
     def _on_iap_stop(self):
         if self.iap_stop_event:
@@ -992,6 +993,15 @@ class I2CTestApp:
         if not v:
             return True
         if len(v) > 2:
+            return False
+        return all(c in "0123456789abcdefABCDEF" for c in v)
+
+    @staticmethod
+    def _vhx32(v):
+        """Validate up to 8 hex chars (32-bit address)."""
+        if not v:
+            return True
+        if len(v) > 8:
             return False
         return all(c in "0123456789abcdefABCDEF" for c in v)
 
@@ -1033,11 +1043,9 @@ class I2CTestApp:
                     self.iap_running = False
                     self._iap_set_buttons(True)
                     if ok:
-                        self.iap_progress_str.set("完成")
                         self._iap_log_res(f"OK: {msg}")
                         self.log_add(msg, "rx")
                     else:
-                        self.iap_progress_str.set(f"失败: {msg}")
                         self._iap_log_res(f"ERR: {msg}")
                         self.log_add(f"IAP failed: {msg}", "err")
         except queue.Empty:

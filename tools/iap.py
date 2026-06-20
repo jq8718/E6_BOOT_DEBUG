@@ -272,11 +272,6 @@ class IapProtocol:
         version, payload_max = self.cmd_handshake()
         self.log("inf", f"HANDSHAKE OK version={version} payload_max={payload_max}")
 
-        # chunk data bytes limited by payload_max - 4(FlashAddr)
-        chunk_size = min(chunk_size, payload_max - 4)
-        if chunk_size <= 0:
-            raise IapError(f"invalid payload_max {payload_max}")
-
         # 2. ERASE_FLASH
         self.log("inf", f"ERASE_FLASH size={app_size}")
         self.cmd_erase_flash(app_size)

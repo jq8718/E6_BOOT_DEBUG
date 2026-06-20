@@ -59,32 +59,8 @@ static bool parse_uint(const char *s, int *val)
 }
 
 /* --------------------------------------------------------------------------
- * Tokenizer: split line by spaces into tokens
+ * Tokenizer helpers
  * -------------------------------------------------------------------------- */
-
-#define MAX_TOKENS 16
-
-static int tokenize(const char *line, const char *tokens[], int max_tokens)
-{
-    int count = 0;
-    const char *p = line;
-
-    while (*p && count < max_tokens) {
-        /* Skip whitespace */
-        while (*p && isspace((unsigned char)*p)) p++;
-        if (!*p) break;
-
-        tokens[count++] = p;
-
-        /* Skip non-whitespace */
-        while (*p && !isspace((unsigned char)*p)) p++;
-        if (*p) {
-            /* Replace space with null terminator temporarily */
-            /* We don't modify the original — just advance */
-        }
-    }
-    return count;
-}
 
 /* Copy a delimited token (space-separated) into a buffer */
 static void copy_token(const char *tok, char *out, size_t out_size)
@@ -125,19 +101,6 @@ static const char *get_token(const char *line, int n, char *buf, size_t buf_size
         tok_idx++;
     }
     return NULL;
-}
-
-static int count_tokens(const char *line)
-{
-    int count = 0;
-    const char *p = line;
-    while (*p) {
-        while (*p && isspace((unsigned char)*p)) p++;
-        if (!*p) break;
-        count++;
-        while (*p && !isspace((unsigned char)*p)) p++;
-    }
-    return count;
 }
 
 /* --------------------------------------------------------------------------
