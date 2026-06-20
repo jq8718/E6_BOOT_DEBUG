@@ -712,9 +712,19 @@ class I2CTestApp:
 
     # ----- IAP helpers -----
 
+    def _iap_get_params(self):
+        dev_str = self.iap_dev.get().strip()
+        addr_str = self.iap_addr.get().strip()
+        if not dev_str:
+            raise ValueError("I2C 设备地址不能为空")
+        if not addr_str:
+            raise ValueError("APP 基地址不能为空")
+        dev = int(dev_str, 16)
+        app_addr = int(addr_str, 16)
+        return dev, app_addr
+
     def _iap_create(self):
-        dev = int(self.iap_dev.get().strip(), 16)
-        app_addr = int(self.iap_addr.get().strip(), 16)
+        dev, app_addr = self._iap_get_params()
         return IapProtocol(self.bridge, dev, app_addr,
                            log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
 
@@ -773,15 +783,22 @@ class I2CTestApp:
 
     def _on_iap_handshake(self):
         if not self._ck(): return
+        try:
+            dev, app_addr = self._iap_get_params()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
         self.iap_res.delete("1.0", tk.END)
         self._iap_set_buttons(False)
         self._iap_reset_progress()
-        t = threading.Thread(target=self._iap_worker_handshake, daemon=True)
+        t = threading.Thread(target=self._iap_worker_handshake,
+                             args=(dev, app_addr), daemon=True)
         t.start()
 
-    def _iap_worker_handshake(self):
+    def _iap_worker_handshake(self, dev, app_addr):
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             version, payload_max = iap.cmd_handshake()
             self.iap_payload_max = payload_max
             self.cmd_queue.put(("iap_done", True,
@@ -794,16 +811,22 @@ class I2CTestApp:
         if not self.iap_bin_data:
             messagebox.showwarning("Warning", "请先选择 app.bin")
             return
+        try:
+            dev, app_addr = self._iap_get_params()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
         self.iap_res.delete("1.0", tk.END)
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_erase,
-                             args=(len(self.iap_bin_data),), daemon=True)
+                             args=(dev, app_addr, len(self.iap_bin_data)), daemon=True)
         t.start()
 
-    def _iap_worker_erase(self, app_size):
+    def _iap_worker_erase(self, dev, app_addr, app_size):
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             iap.cmd_erase_flash(app_size)
             self.cmd_queue.put(("iap_done", True,
                 f"ERASE_FLASH OK: size={app_size}"))
@@ -816,6 +839,7 @@ class I2CTestApp:
             messagebox.showwarning("Warning", "请先选择 app.bin")
             return
         try:
+            dev, app_addr = self._iap_get_params()
             chunk = self._iap_get_chunk()
         except ValueError as e:
             messagebox.showerror("Error", str(e))
@@ -826,22 +850,22 @@ class I2CTestApp:
         self.pbar_iap["maximum"] = len(self.iap_bin_data)
         self.pbar_iap["value"] = 0
         t = threading.Thread(target=self._iap_worker_download,
-                             args=(chunk,), daemon=True)
+                             args=(dev, app_addr, chunk), daemon=True)
         t.start()
 
-    def _iap_worker_download(self, chunk):
+    def _iap_worker_download(self, dev, app_addr, chunk):
         def progress(done, total):
             self.cmd_queue.put(("iap_prog", done, total))
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             app_size = len(self.iap_bin_data)
             offset = 0
             while offset < app_size:
                 if self.iap_stop_event.is_set():
                     raise IapError("stopped by user")
                 block = self.iap_bin_data[offset:offset + chunk]
-                iap.cmd_app_download(
-                    int(self.iap_addr.get().strip(), 16) + offset, block)
+                iap.cmd_app_download(app_addr + offset, block)
                 offset += len(block)
                 progress(offset, app_size)
             self.cmd_queue.put(("iap_done", True,
@@ -854,16 +878,22 @@ class I2CTestApp:
         if not self.iap_bin_data:
             messagebox.showwarning("Warning", "请先选择 app.bin")
             return
+        try:
+            dev, app_addr = self._iap_get_params()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
         self.iap_res.delete("1.0", tk.END)
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_crc,
-                             args=(len(self.iap_bin_data),), daemon=True)
+                             args=(dev, app_addr, len(self.iap_bin_data)), daemon=True)
         t.start()
 
-    def _iap_worker_crc(self, app_size):
+    def _iap_worker_crc(self, dev, app_addr, app_size):
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             local_crc = iap.crc16(self.iap_bin_data)
             flash_crc = iap.cmd_crc_flash(app_size)
             if flash_crc != local_crc:
@@ -876,15 +906,22 @@ class I2CTestApp:
 
     def _on_iap_jump(self):
         if not self._ck(): return
+        try:
+            dev, app_addr = self._iap_get_params()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
         self.iap_res.delete("1.0", tk.END)
         self._iap_set_buttons(False)
         self._iap_reset_progress()
-        t = threading.Thread(target=self._iap_worker_jump, daemon=True)
+        t = threading.Thread(target=self._iap_worker_jump,
+                             args=(dev, app_addr), daemon=True)
         t.start()
 
-    def _iap_worker_jump(self):
+    def _iap_worker_jump(self, dev, app_addr):
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             iap.cmd_jump_to_app()
             self.cmd_queue.put(("iap_done", True, "JUMP_TO_APP OK"))
         except Exception as e:
@@ -896,6 +933,7 @@ class I2CTestApp:
             messagebox.showwarning("Warning", "请先选择 app.bin")
             return
         try:
+            dev, app_addr = self._iap_get_params()
             chunk = self._iap_get_chunk()
         except ValueError as e:
             messagebox.showerror("Error", str(e))
@@ -906,14 +944,15 @@ class I2CTestApp:
         self.pbar_iap["maximum"] = len(self.iap_bin_data)
         self.pbar_iap["value"] = 0
         t = threading.Thread(target=self._iap_worker_auto,
-                             args=(chunk,), daemon=True)
+                             args=(dev, app_addr, chunk), daemon=True)
         t.start()
 
-    def _iap_worker_auto(self, chunk):
+    def _iap_worker_auto(self, dev, app_addr, chunk):
         def progress(done, total):
             self.cmd_queue.put(("iap_prog", done, total))
         try:
-            iap = self._iap_create()
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
             iap.upgrade_bytes(self.iap_bin_data, chunk_size=chunk,
                               progress_callback=progress,
                               stop_event=self.iap_stop_event)
