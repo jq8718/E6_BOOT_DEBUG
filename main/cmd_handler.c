@@ -234,19 +234,21 @@ static void handle_write(const char *line, char *response, size_t resp_size)
     }
 
     /* Collect data bytes from remaining tokens */
-    uint8_t data[64];
+    uint8_t data[540];
     size_t data_len = 0;
-    for (int i = 3; i < 20; i++) {
+    for (int i = 3; ; i++) {
         const char *tok = get_token(line, i, tok_buf2, sizeof(tok_buf2));
         if (!tok) break;
+        if (data_len >= sizeof(data)) {
+            snprintf(response, resp_size, "ERR: Too many data bytes (max %zu)\r\n", sizeof(data));
+            return;
+        }
         uint8_t byte_val;
         if (!parse_hex8(tok, &byte_val)) {
             snprintf(response, resp_size, "ERR: Invalid data byte '%s'\r\n", tok);
             return;
         }
-        if (data_len < sizeof(data)) {
-            data[data_len++] = byte_val;
-        }
+        data[data_len++] = byte_val;
     }
 
     esp_err_t ret = i2c_utils_write_reg(g_bus, dev_addr, reg_addr, data, data_len);
@@ -292,12 +294,12 @@ static void handle_read(const char *line, char *response, size_t resp_size)
         snprintf(response, resp_size, "ERR: Invalid register address '%s'\r\n", reg_str);
         return;
     }
-    if (!parse_uint(len_str, &read_len) || read_len < 1 || read_len > 128) {
-        snprintf(response, resp_size, "ERR: Invalid read length '%s' (1-128)\r\n", len_str);
+    if (!parse_uint(len_str, &read_len) || read_len < 1 || read_len > 530) {
+        snprintf(response, resp_size, "ERR: Invalid read length '%s' (1-530)\r\n", len_str);
         return;
     }
 
-    uint8_t data[128];
+    uint8_t data[540];
     esp_err_t ret = i2c_utils_read_reg(g_bus, dev_addr, reg_addr, data,
                                         (size_t)read_len);
     if (ret == ESP_OK) {
@@ -324,9 +326,9 @@ static void handle_help(char *response, size_t resp_size)
              "  I2C_SCAN                     Scan bus for devices\r\n"
              "  I2C_PROBE <addr_hex>         Probe single address\r\n"
              "  I2C_WR <addr_hex> <reg_hex> [<data_hex> ...]\r\n"
-             "                                Write to device register\r\n"
+             "                                Write up to 540 bytes to register\r\n"
              "  I2C_RD <addr_hex> <reg_hex> <len_dec>\r\n"
-             "                                Read from device register\r\n"
+             "                                Read up to 530 bytes from register\r\n"
              "  I2C_FREQ <hz>                Set I2C clock (10000-400000)\r\n"
              "  INFO                         Bridge information\r\n"
              "  HELP                         This message\r\n"

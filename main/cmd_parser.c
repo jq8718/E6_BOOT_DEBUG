@@ -9,8 +9,8 @@
 #include <ctype.h>
 #include "cmd_parser.h"
 
-#define RX_BUF_SIZE  1024
-#define RESP_BUF_SIZE 2048
+#define RX_BUF_SIZE  2048
+#define RESP_BUF_SIZE 4096
 
 static uint8_t  rx_buf[RX_BUF_SIZE];
 static size_t   rx_head = 0;   /* Write position */
@@ -134,7 +134,7 @@ bool cmd_parser_feed(const uint8_t *data, size_t len, char *response, size_t res
             continue;
         }
 
-        char line[256];
+        char line[2048];
         size_t line_len = extract_line(line, sizeof(line), (size_t)nl_idx);
 
         if (line_len == 0) continue;  /* Skip truly empty lines */
