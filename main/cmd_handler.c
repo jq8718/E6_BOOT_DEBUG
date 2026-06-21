@@ -216,12 +216,8 @@ static void handle_write(const char *line, char *response, size_t resp_size)
 
     esp_err_t ret = i2c_utils_write_reg(g_bus, dev_addr, reg_addr, data, data_len);
     if (ret == ESP_OK) {
-        int pos = snprintf(response, resp_size, "OK: Write 0x%02X reg 0x%02X =",
-                           dev_addr, reg_addr);
-        for (size_t i = 0; i < data_len && pos < (int)resp_size - 4; i++) {
-            pos += snprintf(response + pos, resp_size - pos, " %02X", data[i]);
-        }
-        pos += snprintf(response + pos, resp_size - pos, "\r\n");
+        snprintf(response, resp_size, "OK: Write 0x%02X reg 0x%02X = %zu bytes\r\n",
+                 dev_addr, reg_addr, data_len);
     } else {
         snprintf(response, resp_size, "ERR: I2C write failed: %s\r\n",
                  esp_err_to_name(ret));

@@ -105,8 +105,10 @@ class IapProtocol:
         dh = " ".join(f"{b:02X}" for b in data)
         cmd = f"I2C_WR {self.dev:02X} {reg:02X} {dh}"
         self.log("tx", cmd[:120] + ("..." if len(cmd) > 120 else ""))
+        t0 = time.time()
         r = self.bridge.send_cmd(cmd)
-        self.log("rx", r.strip())
+        dt = (time.time() - t0) * 1000.0
+        self.log("rx", f"{r.strip()}  [{dt:.1f}ms]")
         if not r.strip().startswith("OK"):
             raise IapError(f"I2C_WR failed: {r.strip()}")
 
@@ -114,8 +116,10 @@ class IapProtocol:
         """I2C read via bridge text command."""
         cmd = f"I2C_RD {self.dev:02X} {reg:02X} {length}"
         self.log("tx", cmd)
+        t0 = time.time()
         r = self.bridge.send_cmd(cmd)
-        self.log("rx", r.strip())
+        dt = (time.time() - t0) * 1000.0
+        self.log("rx", f"{r.strip()}  [{dt:.1f}ms]")
         m = re.search(r"=\s*([0-9A-Fa-f ]*)$", r.strip())
         if not m:
             raise IapError(f"I2C_RD parse failed: {r.strip()}")
@@ -148,8 +152,14 @@ class IapProtocol:
     # ------------------------------------------------------------------
     # Standard command transaction
     # ------------------------------------------------------------------
-    def transaction(self, cmd, payload: bytes, poll_timeout=10.0, busy_retry=0.2):
+    def transaction(self, cmd, payload: bytes, poll_timeout=10.0, busy_retry=None):
         frame = self.build_frame(cmd, payload)
+
+        # Flash-less commands respond immediately; use tighter polling.
+        if busy_retry is None:
+            busy_retry = 0.005 if cmd in (self.CMD_HANDSHAKE,
+                                          self.CMD_CRC_FLASH,
+                                          self.CMD_JUMP_TO_APP) else 0.05
 
         # 1. wait IDLE
         t0 = time.time()
@@ -163,7 +173,7 @@ class IapProtocol:
                 raise IapError(f"pre-command error status: {err}")
             if time.time() - t0 > poll_timeout:
                 raise IapError("timeout waiting IDLE")
-            time.sleep(0.01)
+            time.sleep(0.001)
 
         # 2. write mailbox
         self.write_mailbox(frame)

@@ -28,6 +28,11 @@ class I2CBridge:
     def __init__(self, port, timeout=3.0):
         self.ser = serial.Serial(port, 115200, timeout=timeout)
         self._orig_timeout = timeout
+        # Try to reduce Windows CDC ACM latency by using small buffers.
+        try:
+            self.ser.set_buffer_size(rx_size=64, tx_size=64)
+        except Exception:
+            pass
         time.sleep(0.5)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
@@ -39,13 +44,18 @@ class I2CBridge:
     def is_open(self):
         return self.ser and self.ser.is_open
 
-    def send_cmd(self, cmd):
-        """Send command, read one line response."""
+    def send_cmd(self, cmd, resp_timeout=0.5):
+        """Send command, read one line response with short timeout."""
         self.ser.reset_input_buffer()
         self.ser.write((cmd.strip() + "\r\n").encode("utf-8"))
         self.ser.flush()
-        time.sleep(0.00005)
-        return self.ser.readline().decode("utf-8", errors="replace").strip()
+        orig_to = self.ser.timeout
+        self.ser.timeout = resp_timeout
+        try:
+            result = self.ser.readline().decode("utf-8", errors="replace").strip()
+        finally:
+            self.ser.timeout = orig_to
+        return result
 
     def probe(self, addr):
         r = self.send_cmd(f"I2C_PROBE {addr:02X}")
@@ -221,8 +231,18 @@ class I2CTestApp:
         self.status_label = ttk.Label(f, textvariable=self.status_str, foreground="red")
         self.status_label.grid(row=2, column=1, sticky=tk.W)
 
-        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=8)
-        ttk.Label(f, text="Info available in Log", foreground="gray").grid(row=4, column=0, sticky=tk.W, pady=2)
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=6)
+
+        ttk.Label(f, text="CLK (kHz):").grid(row=4, column=0, sticky=tk.W)
+        fr_clk = ttk.Frame(f)
+        fr_clk.grid(row=4, column=1, sticky=tk.W, padx=4)
+        self.clk_var = tk.StringVar(value="400")
+        clk_entry = ttk.Entry(fr_clk, textvariable=self.clk_var, width=10)
+        clk_entry.pack(side=tk.LEFT)
+        ttk.Button(fr_clk, text="设置", command=self._on_set_clk).pack(side=tk.LEFT, padx=4)
+
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=5, column=0, columnspan=3, sticky=tk.EW, pady=6)
+        ttk.Label(f, text="Info available in Log", foreground="gray").grid(row=6, column=0, sticky=tk.W, pady=2)
 
     def _build_single_tab(self, nb):
         f = self._add_tab(nb, "单个读写")
@@ -432,6 +452,23 @@ class I2CTestApp:
         f.rowconfigure(13, weight=2)
 
     # ----- Handlers -----
+
+    def _on_set_clk(self):
+        if not self._ck(): return
+        try:
+            freq_khz = int(self.clk_var.get().strip())
+            if freq_khz < 10 or freq_khz > 400:
+                raise ValueError("范围 10~400")
+            freq_hz = freq_khz * 1000
+        except ValueError as e:
+            messagebox.showerror("Error", f"无效频率: {e}")
+            return
+        self.log_add(f"I2C_FREQ {freq_hz}", "tx")
+        try:
+            r = self.bridge.send_cmd(f"I2C_FREQ {freq_hz}")
+            self.log_add(f"= {r}", "rx")
+        except Exception as e:
+            self.log_add(f"ERR: {e}", "err")
 
     def _on_connect(self):
         port = self.port_var.get().strip()
