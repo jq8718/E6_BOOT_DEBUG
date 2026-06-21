@@ -157,9 +157,7 @@ class IapProtocol:
 
         # Flash-less commands respond immediately; use tighter polling.
         if busy_retry is None:
-            busy_retry = 0.005 if cmd in (self.CMD_HANDSHAKE,
-                                          self.CMD_CRC_FLASH,
-                                          self.CMD_JUMP_TO_APP) else 0.05
+            busy_retry = 0.005
 
         # 1. wait IDLE
         t0 = time.time()

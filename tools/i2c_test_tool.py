@@ -25,14 +25,9 @@ from iap import IapProtocol, IapError
 
 
 class I2CBridge:
-    def __init__(self, port, timeout=3.0):
+    def __init__(self, port, timeout=0.5):
         self.ser = serial.Serial(port, 115200, timeout=timeout)
         self._orig_timeout = timeout
-        # Try to reduce Windows CDC ACM latency by using small buffers.
-        try:
-            self.ser.set_buffer_size(rx_size=64, tx_size=64)
-        except Exception:
-            pass
         time.sleep(0.5)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
@@ -44,17 +39,12 @@ class I2CBridge:
     def is_open(self):
         return self.ser and self.ser.is_open
 
-    def send_cmd(self, cmd, resp_timeout=0.5):
-        """Send command, read one line response with short timeout."""
+    def send_cmd(self, cmd):
+        """Send command, read one line response."""
         self.ser.reset_input_buffer()
         self.ser.write((cmd.strip() + "\r\n").encode("utf-8"))
         self.ser.flush()
-        orig_to = self.ser.timeout
-        self.ser.timeout = resp_timeout
-        try:
-            result = self.ser.readline().decode("utf-8", errors="replace").strip()
-        finally:
-            self.ser.timeout = orig_to
+        result = self.ser.readline().decode("utf-8", errors="replace").strip()
         return result
 
     def probe(self, addr):
@@ -431,25 +421,21 @@ class I2CTestApp:
         ttk.Label(f, text="升级进度:", font=("", 9, "bold")).grid(row=5, column=0, sticky=tk.W)
         self.pbar_iap = ttk.Progressbar(f, mode="determinate")
         self.pbar_iap.grid(row=6, column=0, columnspan=4, sticky=tk.EW, pady=4)
-        self.iap_progress_str = tk.StringVar(value="就绪")
-        ttk.Label(f, textvariable=self.iap_progress_str).grid(row=7, column=0, sticky=tk.W)
 
-        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=8, column=0, columnspan=4, sticky=tk.EW, pady=8)
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=7, column=0, columnspan=4, sticky=tk.EW, pady=8)
 
         # bin content display
         ttk.Label(f, text="app.bin 内容 (hex):", font=("", 9, "bold")).grid(row=9, column=0, sticky=tk.W)
-        self.iap_bin = tk.Text(f, height=8, width=70, font=("Consolas", 9))
-        self.iap_bin.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+        f_bin = ttk.Frame(f)
+        f_bin.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+        self.iap_bin = tk.Text(f_bin, height=14, width=70, font=("Consolas", 9), state=tk.DISABLED)
+        self.iap_bin.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb_bin = ttk.Scrollbar(f_bin, orient=tk.VERTICAL, command=self.iap_bin.yview)
+        sb_bin.pack(side=tk.RIGHT, fill=tk.Y)
+        self.iap_bin.configure(yscrollcommand=sb_bin.set)
 
-        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=11, column=0, columnspan=4, sticky=tk.EW, pady=8)
-        ttk.Label(f, text="IAP 结果:", font=("", 9, "bold")).grid(row=12, column=0, sticky=tk.W)
-        self.iap_res = tk.Text(f, height=8, width=70, font=("Consolas", 9))
-        self.iap_res.grid(row=13, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
-
-        f.columnconfigure(1, weight=1)
-        f.columnconfigure(3, weight=1)
+        f.columnconfigure(4, weight=0)
         f.rowconfigure(10, weight=1)
-        f.rowconfigure(13, weight=2)
 
     # ----- Handlers -----
 
@@ -780,12 +766,9 @@ class I2CTestApp:
 
     def _iap_reset_progress(self):
         self.pbar_iap["value"] = 0
-        self.iap_progress_str.set("就绪")
 
     def _iap_log_res(self, msg):
-        ts = datetime.now().strftime("%H:%M:%S")
-        self.iap_res.insert(tk.END, f"[{ts}] {msg}\n")
-        self.iap_res.see(tk.END)
+        self.log_add(msg, "inf")
 
     # ----- IAP handlers -----
 
@@ -797,19 +780,40 @@ class I2CTestApp:
             return
         self.iap_file = path
         self.iap_file_str.set(path)
+        # Clear previous bin data before loading new file
+        self.iap_bin_data = None
+        self._iap_display_bin()
         try:
             with open(path, 'rb') as f:
                 self.iap_bin_data = f.read()
         except Exception as e:
             messagebox.showerror("Error", f"读取文件失败: {e}")
             return
+        # Validate size: flash=64KB (0x0000~0xFFFF), boot=8KB (0x0000~0x1FFF),
+        # last 512B sector reserved for boot params → app usable = 0x2000~(0x10000-512)
+        FLASH_END = 0x10000 - 512  # 0xFE00
+        app_size = len(self.iap_bin_data)
+        try:
+            app_base = int(self.iap_addr.get().strip(), 16)
+        except ValueError:
+            app_base = 0x2000
+        if app_base + app_size > FLASH_END:
+            messagebox.showwarning("警告",
+                f"文件 {app_size} 字节超出可用 Flash 范围\n"
+                f"APP基地址=0x{app_base:04X}, 结束地址=0x{app_base+app_size:04X}\n"
+                f"Flash 64KB, Boot 8KB (0x0000~0x1FFF)\n"
+                f"最后一扇区(512B)存参数, 可用: 0x{app_base:04X}~0x{FLASH_END:04X}\n"
+                f"当前配置最多 {FLASH_END-app_base} 字节")
+            self.iap_bin_data = None
+            return
         self._iap_display_bin()
         self._iap_log_res(f"已加载 {path}, 大小 {len(self.iap_bin_data)} bytes")
-        self._iap_reset_progress()
 
     def _iap_display_bin(self):
+        self.iap_bin.configure(state=tk.NORMAL)
         self.iap_bin.delete("1.0", tk.END)
         if not self.iap_bin_data:
+            self.iap_bin.configure(state=tk.DISABLED)
             return
         lines = []
         for i in range(0, len(self.iap_bin_data), 16):
@@ -818,6 +822,7 @@ class I2CTestApp:
             ascii_part = "".join(chr(b) if 32 <= b < 127 else '.' for b in chunk)
             lines.append(f"{i:08X}: {hex_part:<48} {ascii_part}")
         self.iap_bin.insert("1.0", "\n".join(lines))
+        self.iap_bin.configure(state=tk.DISABLED)
 
     def _on_iap_handshake(self):
         if not self._ck(): return
@@ -826,7 +831,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_handshake,
@@ -854,7 +859,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_erase,
@@ -882,7 +887,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self.iap_stop_event = threading.Event()
         self.pbar_iap["maximum"] = len(self.iap_bin_data)
@@ -921,7 +926,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_crc,
@@ -949,7 +954,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self._iap_reset_progress()
         t = threading.Thread(target=self._iap_worker_jump,
@@ -976,7 +981,7 @@ class I2CTestApp:
         except ValueError as e:
             messagebox.showerror("Error", str(e))
             return
-        self.iap_res.delete("1.0", tk.END)
+        # memo removed
         self._iap_set_buttons(False)
         self.iap_stop_event = threading.Event()
         self.pbar_iap["maximum"] = len(self.iap_bin_data)
@@ -1074,7 +1079,7 @@ class I2CTestApp:
                 elif t == "iap_prog":
                     done, total = item[1], item[2]
                     self.pbar_iap["value"] = done
-                    self.iap_progress_str.set(f"{done} / {total} bytes ({100*done//total}%)")
+                    self.pbar_iap.update_idletasks()
                 elif t == "iap_done":
                     ok, msg = item[1], item[2]
                     self.iap_running = False
