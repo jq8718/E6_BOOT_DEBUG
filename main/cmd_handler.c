@@ -315,6 +315,17 @@ static void handle_info(char *response, size_t resp_size)
 }
 
 /* --------------------------------------------------------------------------
+ * ECHO handler — pure USB round-trip latency test
+ * -------------------------------------------------------------------------- */
+
+static void handle_echo(const char *line, char *response, size_t resp_size)
+{
+    (void)line;
+    size_t len = strlen(line);
+    snprintf(response, resp_size, "OK: echo (%zu bytes)\r\n", len);
+}
+
+/* --------------------------------------------------------------------------
  * Main dispatch
  * -------------------------------------------------------------------------- */
 
@@ -355,6 +366,10 @@ void cmd_handler_process(const char *line, char *response, size_t resp_size)
         handle_help(response, resp_size);
     } else if (streq_ci(cmd, "INFO")) {
         handle_info(response, resp_size);
+    } else if (streq_ci(cmd, "ECHO")) {
+        handle_echo(line, response, resp_size);
+    } else if (streq_ci(cmd, "IAP_LATENCY")) {
+        handle_echo(line, response, resp_size);
     } else {
         snprintf(response, resp_size,
                  "ERR: Unknown command '%s'. Type HELP for commands.\r\n", cmd);
