@@ -35,6 +35,7 @@ class IapProtocol:
     # Commands
     CMD_HANDSHAKE = 0x20
     CMD_JUMP_TO_APP = 0x21
+    CMD_JUMP_TO_BOOT = 0x23
     CMD_APP_DOWNLOAD = 0x22
     CMD_ERASE_FLASH = 0x24
     CMD_CRC_FLASH = 0x25
@@ -266,6 +267,12 @@ class IapProtocol:
         err, _ = self.transaction(self.CMD_JUMP_TO_APP, b'', poll_timeout=5.0)
         if err != 0:
             raise IapError(f"JUMP_TO_APP failed: {err}")
+
+    def cmd_jump_to_boot(self):
+        """Send JUMP_TO_BOOT to APP — tells APP to reset into Bootloader."""
+        err, _ = self.transaction(self.CMD_JUMP_TO_BOOT, b'', poll_timeout=5.0)
+        if err != 0:
+            raise IapError(f"JUMP_TO_BOOT failed: {err}")
 
     # ------------------------------------------------------------------
     # Full firmware upgrade flow

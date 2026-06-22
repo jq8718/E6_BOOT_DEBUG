@@ -402,6 +402,8 @@ class I2CTestApp:
         bf = ttk.Frame(f)
         bf.grid(row=3, column=0, columnspan=4, sticky=tk.W, pady=4)
         ttk.Button(bf, text="选择文件", command=self._on_iap_select_file).pack(side=tk.LEFT, padx=2)
+        self.btn_iap_boot = ttk.Button(bf, text="进入升级", command=self._on_iap_enter_boot)
+        self.btn_iap_boot.pack(side=tk.LEFT, padx=1)
         self.btn_iap_hs = ttk.Button(bf, text="握手", command=self._on_iap_handshake)
         self.btn_iap_hs.pack(side=tk.LEFT, padx=1)
         self.btn_iap_erase = ttk.Button(bf, text="擦除", command=self._on_iap_erase)
@@ -755,7 +757,8 @@ class I2CTestApp:
     def _iap_set_buttons(self, enabled: bool):
         state = tk.NORMAL if enabled else tk.DISABLED
         for b in (self.btn_iap_hs, self.btn_iap_erase, self.btn_iap_dl,
-                  self.btn_iap_crc, self.btn_iap_jump, self.btn_iap_auto):
+                  self.btn_iap_crc, self.btn_iap_jump, self.btn_iap_auto,
+                  self.btn_iap_boot):
             b.config(state=state)
 
     def _iap_get_chunk(self):
@@ -823,6 +826,38 @@ class I2CTestApp:
             lines.append(f"{i:08X}: {hex_part:<48} {ascii_part}")
         self.iap_bin.insert("1.0", "\n".join(lines))
         self.iap_bin.configure(state=tk.DISABLED)
+
+    def _on_iap_enter_boot(self):
+        """Send JUMP_TO_BOOT → APP resets into Bootloader → auto-handshake."""
+        if not self._ck(): return
+        try:
+            dev, app_addr = self._iap_get_params()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+            return
+        self._iap_set_buttons(False)
+        self._iap_reset_progress()
+        t = threading.Thread(target=self._iap_worker_enter_boot,
+                             args=(dev, app_addr), daemon=True)
+        t.start()
+
+    def _iap_worker_enter_boot(self, dev, app_addr):
+        try:
+            iap = IapProtocol(self.bridge, dev, app_addr,
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+            iap.cmd_jump_to_boot()
+            self.cmd_queue.put(("log", "APP 已收到 JUMP_TO_BOOT，等待 MCU 复位进入 Bootloader...", "inf"))
+            # MCU resetting — wait for bootloader to come up
+            time.sleep(1.5)
+            # auto-handshake
+            iap2 = IapProtocol(self.bridge, dev, app_addr,
+                               log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+            version, payload_max = iap2.cmd_handshake()
+            self.iap_payload_max = payload_max
+            self.cmd_queue.put(("iap_done", True,
+                f"进入 Bootloader 成功: version={version}, IAP_FLASH_DATA_MAX={payload_max}", "hs"))
+        except Exception as e:
+            self.cmd_queue.put(("iap_done", False, f"进入升级失败: {e}", "hs"))
 
     def _on_iap_handshake(self):
         if not self._ck(): return

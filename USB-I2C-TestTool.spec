@@ -5,7 +5,7 @@ a = Analysis(
     ['d:/XC/E6/E6LD 1.1/bootload/USBtoI2C/tools/i2c_test_tool.py'],
     pathex=[],
     binaries=[],
-    datas=[('example_script.i2c', '.')],
+    datas=[('tools/example_script.i2c', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
