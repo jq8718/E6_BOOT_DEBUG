@@ -40,11 +40,14 @@ class IapProtocol:
     CMD_ERASE_FLASH = 0x24
     CMD_CRC_FLASH = 0x25
 
-    def __init__(self, bridge, dev_addr, app_addr, log_callback=None):
+    def __init__(self, bridge, dev_addr, app_addr, log_callback=None, flash_delay=0.5,
+                 commit_delay_enabled=True):
         self.bridge = bridge
         self.dev = int(dev_addr) & 0x7F
         self.app_addr = int(app_addr) & 0xFFFFFFFF
         self.seq = 0
+        self.flash_delay = flash_delay
+        self.commit_delay_enabled = commit_delay_enabled
         self.log = log_callback or (lambda *_a, **_k: None)
 
     # ------------------------------------------------------------------
@@ -153,7 +156,8 @@ class IapProtocol:
     # ------------------------------------------------------------------
     # Standard command transaction
     # ------------------------------------------------------------------
-    def transaction(self, cmd, payload: bytes, poll_timeout=10.0, busy_retry=None):
+    def transaction(self, cmd, payload: bytes, poll_timeout=10.0, busy_retry=None,
+                    commit_delay=None):
         frame = self.build_frame(cmd, payload)
 
         # Flash-less commands respond immediately; use tighter polling.
@@ -180,7 +184,11 @@ class IapProtocol:
         # 3. commit
         self.write_ctrl(self.CTRL_COMMIT)
 
-        # 4. poll status
+        # 4. commit delay — wait for MCU to process before polling STATUS
+        if self.commit_delay_enabled and commit_delay is not None and commit_delay > 0:
+            time.sleep(commit_delay)
+
+        # 5. poll status
         t0 = time.time()
         while True:
             try:
@@ -242,21 +250,23 @@ class IapProtocol:
     def cmd_erase_flash(self, app_size: int):
         err, _ = self.transaction(self.CMD_ERASE_FLASH,
                                   app_size.to_bytes(4, 'little'),
-                                  poll_timeout=20.0)
+                                  poll_timeout=20.0,
+                                  commit_delay=self.flash_delay)
         if err != 0:
             raise IapError(f"ERASE_FLASH failed: {err}")
 
     def cmd_app_download(self, flash_addr: int, data: bytes):
         payload = (flash_addr & 0xFFFFFFFF).to_bytes(4, 'little') + data
         err, _ = self.transaction(self.CMD_APP_DOWNLOAD, payload,
-                                  poll_timeout=5.0)
+                                  poll_timeout=5.0, commit_delay=0.05)
         if err != 0:
             raise IapError(f"APP_DOWNLOAD @0x{flash_addr:08X} failed: {err}")
 
     def cmd_crc_flash(self, app_size: int):
         err, resp = self.transaction(self.CMD_CRC_FLASH,
                                       app_size.to_bytes(4, 'little'),
-                                      poll_timeout=10.0)
+                                      poll_timeout=10.0,
+                                      commit_delay=self.flash_delay)
         if err != 0:
             raise IapError(f"CRC_FLASH failed: {err}")
         if len(resp) < 2:
@@ -264,7 +274,8 @@ class IapProtocol:
         return int.from_bytes(resp[0:2], 'little')
 
     def cmd_jump_to_app(self):
-        err, _ = self.transaction(self.CMD_JUMP_TO_APP, b'', poll_timeout=5.0)
+        err, _ = self.transaction(self.CMD_JUMP_TO_APP, b'', poll_timeout=5.0,
+                                  commit_delay=self.flash_delay)
         if err != 0:
             raise IapError(f"JUMP_TO_APP failed: {err}")
 

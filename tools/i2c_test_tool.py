@@ -116,14 +116,14 @@ def parse_script(path):
 
 
 class I2CTestApp:
-    W = 1280
-    H = 740
+    W = 1350
+    H = 780
 
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("USB-I2C Bridge 测试工具 v1.0")
         self.root.geometry(f"{self.W}x{self.H}")
-        self.root.minsize(1100, 650)
+        self.root.minsize(1300, 680)
 
         self.bridge = None
         self.cmd_queue = queue.Queue()
@@ -389,54 +389,59 @@ class I2CTestApp:
         self.iap_chunk.insert(0, "512")
         self.iap_chunk.grid(row=1, column=1, sticky=tk.W, padx=(2, 8))
 
-        er(1, 2, "超时(ms):", padx=(8, 0), pady=4)
-        self.iap_timeout = ttk.Entry(f, width=12)
-        self.iap_timeout.insert(0, "10000")
-        self.iap_timeout.grid(row=1, column=3, sticky=tk.W, padx=(2, 8))
+        er(1, 2, "FLASH 延时(ms):", padx=(8, 0), pady=4)
+        self.iap_flash_delay = ttk.Entry(f, width=12)
+        self.iap_flash_delay.insert(0, "500")
+        self.iap_flash_delay.grid(row=1, column=3, sticky=tk.W, padx=(2, 8))
+
+        # 提交后延时复选框
+        self.iap_commit_delay_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(f, text="提交后延时", variable=self.iap_commit_delay_var).grid(
+            row=1, column=4, sticky=tk.W, padx=(12, 0), pady=4)
 
         # file selection
         self.iap_file_str = tk.StringVar(value="未选择 app.bin")
         ttk.Label(f, textvariable=self.iap_file_str, foreground="blue").grid(
-            row=2, column=0, columnspan=4, sticky=tk.W, pady=4)
+            row=2, column=0, columnspan=5, sticky=tk.W, pady=4)
 
         bf = ttk.Frame(f)
-        bf.grid(row=3, column=0, columnspan=4, sticky=tk.W, pady=4)
-        ttk.Button(bf, text="选择文件", command=self._on_iap_select_file).pack(side=tk.LEFT, padx=2)
-        self.btn_iap_boot = ttk.Button(bf, text="进入升级", command=self._on_iap_enter_boot)
+        bf.grid(row=3, column=0, columnspan=5, sticky=tk.W, pady=4)
+        style = ttk.Style()
+        style.configure('IAP.TButton', padding=(1, 0))
+        ttk.Button(bf, text="选择文件", style='IAP.TButton', command=self._on_iap_select_file).pack(side=tk.LEFT, padx=1)
+        self.btn_iap_boot = ttk.Button(bf, text="进入升级", style='IAP.TButton', command=self._on_iap_enter_boot)
         self.btn_iap_boot.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_hs = ttk.Button(bf, text="握手", command=self._on_iap_handshake)
+        self.btn_iap_hs = ttk.Button(bf, text="握手", style='IAP.TButton', command=self._on_iap_handshake)
         self.btn_iap_hs.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_erase = ttk.Button(bf, text="擦除", command=self._on_iap_erase)
+        self.btn_iap_erase = ttk.Button(bf, text="擦除", style='IAP.TButton', command=self._on_iap_erase)
         self.btn_iap_erase.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_dl = ttk.Button(bf, text="下载", command=self._on_iap_download)
+        self.btn_iap_dl = ttk.Button(bf, text="下载", style='IAP.TButton', command=self._on_iap_download)
         self.btn_iap_dl.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_crc = ttk.Button(bf, text="校验", command=self._on_iap_crc)
+        self.btn_iap_crc = ttk.Button(bf, text="校验", style='IAP.TButton', command=self._on_iap_crc)
         self.btn_iap_crc.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_jump = ttk.Button(bf, text="跳转", command=self._on_iap_jump)
+        self.btn_iap_jump = ttk.Button(bf, text="跳转", style='IAP.TButton', command=self._on_iap_jump)
         self.btn_iap_jump.pack(side=tk.LEFT, padx=1)
-        self.btn_iap_auto = ttk.Button(bf, text="自动", command=self._on_iap_auto)
-        self.btn_iap_auto.pack(side=tk.LEFT, padx=2)
-        ttk.Button(bf, text="停止", command=self._on_iap_stop).pack(side=tk.LEFT, padx=2)
+        ttk.Button(bf, text="自动", style='IAP.TButton', command=self._on_iap_auto).pack(side=tk.LEFT, padx=1)
 
-        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=4, column=0, columnspan=4, sticky=tk.EW, pady=8)
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=4, column=0, columnspan=5, sticky=tk.EW, pady=8)
 
         ttk.Label(f, text="升级进度:", font=("", 9, "bold")).grid(row=5, column=0, sticky=tk.W)
         self.pbar_iap = ttk.Progressbar(f, mode="determinate")
-        self.pbar_iap.grid(row=6, column=0, columnspan=4, sticky=tk.EW, pady=4)
+        self.pbar_iap.grid(row=6, column=0, columnspan=5, sticky=tk.EW, pady=4)
 
-        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=7, column=0, columnspan=4, sticky=tk.EW, pady=8)
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=7, column=0, columnspan=5, sticky=tk.EW, pady=8)
 
         # bin content display
         ttk.Label(f, text="app.bin 内容 (hex):", font=("", 9, "bold")).grid(row=9, column=0, sticky=tk.W)
         f_bin = ttk.Frame(f)
-        f_bin.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
-        self.iap_bin = tk.Text(f_bin, height=14, width=70, font=("Consolas", 9), state=tk.DISABLED)
+        f_bin.grid(row=10, column=0, columnspan=5, sticky=tk.NSEW, pady=4)
+        self.iap_bin = tk.Text(f_bin, height=6, width=70, font=("Consolas", 9), state=tk.DISABLED)
         self.iap_bin.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb_bin = ttk.Scrollbar(f_bin, orient=tk.VERTICAL, command=self.iap_bin.yview)
         sb_bin.pack(side=tk.RIGHT, fill=tk.Y)
         self.iap_bin.configure(yscrollcommand=sb_bin.set)
 
-        f.columnconfigure(4, weight=0)
+        f.columnconfigure(5, weight=0)
         f.rowconfigure(10, weight=1)
 
     # ----- Handlers -----
@@ -751,13 +756,17 @@ class I2CTestApp:
 
     def _iap_create(self):
         dev, app_addr = self._iap_get_params()
+        fd_ms = int(self.iap_flash_delay.get().strip())
+        fd_sec = max(0.0, fd_ms / 1000.0)
         return IapProtocol(self.bridge, dev, app_addr,
-                           log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                           log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                           flash_delay=fd_sec,
+                           commit_delay_enabled=self.iap_commit_delay_var.get())
 
     def _iap_set_buttons(self, enabled: bool):
         state = tk.NORMAL if enabled else tk.DISABLED
         for b in (self.btn_iap_hs, self.btn_iap_erase, self.btn_iap_dl,
-                  self.btn_iap_crc, self.btn_iap_jump, self.btn_iap_auto,
+                  self.btn_iap_crc, self.btn_iap_jump,
                   self.btn_iap_boot):
             b.config(state=state)
 
@@ -769,6 +778,12 @@ class I2CTestApp:
 
     def _iap_reset_progress(self):
         self.pbar_iap["value"] = 0
+
+    def _iap_flash_delay_sec(self):
+        try:
+            return max(0.0, int(self.iap_flash_delay.get().strip()) / 1000.0)
+        except:
+            return 0.5
 
     def _iap_log_res(self, msg):
         self.log_add(msg, "inf")
@@ -843,15 +858,21 @@ class I2CTestApp:
 
     def _iap_worker_enter_boot(self, dev, app_addr):
         try:
+            fd = self._iap_flash_delay_sec()
+            cd_enabled = self.iap_commit_delay_var.get()
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=fd,
+                              commit_delay_enabled=cd_enabled)
             iap.cmd_jump_to_boot()
             self.cmd_queue.put(("log", "APP 已收到 JUMP_TO_BOOT，等待 MCU 复位进入 Bootloader...", "inf"))
             # MCU resetting — wait for bootloader to come up
             time.sleep(1.5)
             # auto-handshake
             iap2 = IapProtocol(self.bridge, dev, app_addr,
-                               log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                               log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                               flash_delay=fd,
+                               commit_delay_enabled=cd_enabled)
             version, payload_max = iap2.cmd_handshake()
             self.iap_payload_max = payload_max
             self.cmd_queue.put(("iap_done", True,
@@ -876,7 +897,9 @@ class I2CTestApp:
     def _iap_worker_handshake(self, dev, app_addr):
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             version, payload_max = iap.cmd_handshake()
             self.iap_payload_max = payload_max
             self.cmd_queue.put(("iap_done", True,
@@ -904,7 +927,9 @@ class I2CTestApp:
     def _iap_worker_erase(self, dev, app_addr, app_size):
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             iap.cmd_erase_flash(app_size)
             self.cmd_queue.put(("iap_done", True,
                 f"擦除成功: size={app_size}"))
@@ -936,7 +961,9 @@ class I2CTestApp:
             self.cmd_queue.put(("iap_prog", done, total))
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             app_size = len(self.iap_bin_data)
             offset = 0
             while offset < app_size:
@@ -971,7 +998,9 @@ class I2CTestApp:
     def _iap_worker_crc(self, dev, app_addr, app_size):
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             local_crc = iap.crc16(self.iap_bin_data)
             flash_crc = iap.cmd_crc_flash(app_size)
             if flash_crc != local_crc:
@@ -999,7 +1028,9 @@ class I2CTestApp:
     def _iap_worker_jump(self, dev, app_addr):
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             iap.cmd_jump_to_app()
             self.cmd_queue.put(("iap_done", True, "跳转成功"))
         except Exception as e:
@@ -1030,18 +1061,15 @@ class I2CTestApp:
             self.cmd_queue.put(("iap_prog", done, total))
         try:
             iap = IapProtocol(self.bridge, dev, app_addr,
-                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)))
+                              log_callback=lambda kind, msg: self.cmd_queue.put(("log", f"[IAP] {msg}", kind)),
+                              flash_delay=self._iap_flash_delay_sec(),
+                              commit_delay_enabled=self.iap_commit_delay_var.get())
             iap.upgrade_bytes(self.iap_bin_data, chunk_size=chunk,
                               progress_callback=progress,
                               stop_event=self.iap_stop_event)
             self.cmd_queue.put(("iap_done", True, "自动升级成功"))
         except Exception as e:
             self.cmd_queue.put(("iap_done", False, f"自动升级失败: {e}"))
-
-    def _on_iap_stop(self):
-        if self.iap_stop_event:
-            self.iap_stop_event.set()
-        self.log_add("IAP stop requested", "err")
 
     def _on_copy_batch(self):
         c = self.b_res.get(1.0, tk.END).strip()
