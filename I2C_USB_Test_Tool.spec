@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['i2c_test_tool.py'],
+    ['tools\\i2c_test_tool.py'],
     pathex=[],
     binaries=[],
-    datas=[('iap.py', '.')],
+    datas=[('tools\\iap.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='USB-I2C-TestTool',
+    name='I2C_USB_Test_Tool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
