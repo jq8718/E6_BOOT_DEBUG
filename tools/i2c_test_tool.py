@@ -4,7 +4,7 @@ USB-I2C Bridge GUI Test Tool for ESP32-P4
 功能: 单个读写, 批量读写, 总线扫描, 脚本文件批量执行
 """
 
-import sys, os, re, time, json, threading, queue
+import sys, os, re, time, json, threading, queue, struct
 from datetime import datetime
 from pathlib import Path
 
@@ -180,6 +180,7 @@ class I2CTestApp:
         self._build_scan_tab(nb)
         self._build_script_tab(nb)
         self._build_iap_tab(nb)
+        self._build_hex_merge_tab(nb)
 
         ttk.Label(right, text="通信日志", font=("", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
         self.log = scrolledtext.ScrolledText(
@@ -232,7 +233,20 @@ class I2CTestApp:
         ttk.Button(fr_clk, text="设置", command=self._on_set_clk).pack(side=tk.LEFT, padx=4)
 
         ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=5, column=0, columnspan=3, sticky=tk.EW, pady=6)
-        ttk.Label(f, text="Info available in Log", foreground="gray").grid(row=6, column=0, sticky=tk.W, pady=2)
+
+        ttk.Label(f, text="I2C 地址:").grid(row=6, column=0, sticky=tk.W)
+        vh = (f.register(self._vhx), "%P")
+        self.conn_dev_addr = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
+        self.conn_dev_addr.insert(0, "32")
+        self.conn_dev_addr.grid(row=6, column=1, sticky=tk.W, padx=4)
+        self.btn_fw_version = ttk.Button(f, text="读固件版本", command=self._on_read_fw_version)
+        self.btn_fw_version.grid(row=6, column=2, padx=4)
+
+        self.fw_version_str = tk.StringVar(value="")
+        ttk.Label(f, textvariable=self.fw_version_str, foreground="blue").grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=2)
+
+        ttk.Separator(f, orient=tk.HORIZONTAL).grid(row=8, column=0, columnspan=3, sticky=tk.EW, pady=6)
+        ttk.Label(f, text="Info available in Log", foreground="gray").grid(row=9, column=0, sticky=tk.W, pady=2)
 
     def _build_single_tab(self, nb):
         f = self._add_tab(nb, "单个读写")
@@ -243,7 +257,7 @@ class I2CTestApp:
 
         er(0, 0, "Dev Addr (hex):", pady=4)
         self.s_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.s_dev.insert(0, "18")
+        self.s_dev.insert(0, "32")
         self.s_dev.grid(row=0, column=1, sticky=tk.W, padx=4)
 
         er(0, 2, "Reg (hex):", padx=(16, 0), pady=4)
@@ -266,7 +280,7 @@ class I2CTestApp:
         ttk.Label(f, text="Quick Write:", font=("", 9, "bold")).grid(row=4, column=0, sticky=tk.W, pady=4)
         er(5, 0, "Dev Addr (hex):", pady=2)
         self.q_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.q_dev.insert(0, "18")
+        self.q_dev.insert(0, "32")
         self.q_dev.grid(row=5, column=1, sticky=tk.W, padx=4)
         er(5, 2, "Reg + Data (hex):", padx=(16, 0))
         self.q_data = ttk.Entry(f, width=30)
@@ -282,7 +296,7 @@ class I2CTestApp:
 
         er(0, 0, "设备地址 (hex):", pady=4)
         self.b_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.b_dev.insert(0, "18")
+        self.b_dev.insert(0, "32")
         self.b_dev.grid(row=0, column=1, sticky=tk.W, padx=4)
 
         er(1, 0, "起始寄存器 (hex):", pady=4)
@@ -376,7 +390,7 @@ class I2CTestApp:
 
         er(0, 0, "I2C 设备地址 (hex):", pady=4)
         self.iap_dev = ttk.Entry(f, width=12, validate="key", validatecommand=vh)
-        self.iap_dev.insert(0, "20")
+        self.iap_dev.insert(0, "32")
         self.iap_dev.grid(row=0, column=1, sticky=tk.W, padx=(2, 8))
 
         er(0, 2, "APP 基地址 (hex):", padx=(8, 0), pady=4)
@@ -444,6 +458,76 @@ class I2CTestApp:
         f.columnconfigure(5, weight=0)
         f.rowconfigure(10, weight=1)
 
+    def _build_hex_merge_tab(self, nb):
+        f = self._add_tab(nb, "HEX合并")
+        self.hex_boot_path = tk.StringVar()
+        self.hex_app_path = tk.StringVar()
+        self.hex_boot_data = None  # (data, start_addr)
+        self.hex_app_data = None
+
+        # row 0: boot hex
+        ttk.Label(f, text="BOOT.HEX:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(f, textvariable=self.hex_boot_path, width=50).grid(row=0, column=1, sticky=tk.EW, padx=4)
+        ttk.Button(f, text="选择", command=lambda: self._hex_sel("boot")).grid(row=0, column=2, padx=2)
+
+        # row 1: app hex
+        ttk.Label(f, text="APP.HEX:").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(f, textvariable=self.hex_app_path, width=50).grid(row=1, column=1, sticky=tk.EW, padx=4)
+        ttk.Button(f, text="选择", command=lambda: self._hex_sel("app")).grid(row=1, column=2, padx=2)
+
+        # row 2: params
+        pf = ttk.Frame(f)
+        pf.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=6)
+        ttk.Label(pf, text="APP版本:").pack(side=tk.LEFT)
+        self.hex_app_ver = ttk.Entry(pf, width=6, state="readonly")
+        self.hex_app_ver.configure(state="normal")
+        self.hex_app_ver.insert(0, "1")
+        self.hex_app_ver.configure(state="readonly")
+        self.hex_app_ver.pack(side=tk.LEFT, padx=(2, 16))
+
+        ttk.Label(pf, text="APP基址:").pack(side=tk.LEFT)
+        self.hex_app_base = ttk.Entry(pf, width=8, state="readonly")
+        self.hex_app_base.configure(state="normal")
+        self.hex_app_base.insert(0, "2000")
+        self.hex_app_base.configure(state="readonly")
+        self.hex_app_base.pack(side=tk.LEFT, padx=(2, 16))
+
+        ttk.Label(pf, text="BOOT参数:").pack(side=tk.LEFT)
+        self.hex_boot_param = ttk.Entry(pf, width=8, state="readonly")
+        self.hex_boot_param.configure(state="normal")
+        self.hex_boot_param.insert(0, "1E00")
+        self.hex_boot_param.configure(state="readonly")
+        self.hex_boot_param.pack(side=tk.LEFT, padx=2)
+
+        self.hex_param_lock = tk.BooleanVar(value=False)
+        ttk.Checkbutton(pf, text="允许修改", variable=self.hex_param_lock,
+            command=self._hex_toggle_param_lock).pack(side=tk.LEFT, padx=(12, 4))
+
+        ttk.Button(pf, text="计算BOOT参数", command=self._hex_calc_params).pack(side=tk.LEFT, padx=(16, 4))
+        ttk.Button(pf, text="合并保存...", command=self._hex_merge).pack(side=tk.LEFT, padx=4)
+
+        # row 3: hex viewer (address + data display)
+        vf = ttk.Frame(f)
+        vf.grid(row=3, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+        self.hex_viewer = scrolledtext.ScrolledText(vf, wrap=tk.NONE, font=("Consolas", 9),
+            bg="#1e1e1e", fg="#d4d4d4", state=tk.DISABLED)
+        self.hex_viewer.pack(fill=tk.BOTH, expand=True)
+        self.hex_viewer.tag_config("addr", foreground="#6a9955")
+        self.hex_viewer.tag_config("data", foreground="#d4d4d4")
+        self.hex_viewer.tag_config("label", foreground="#569cd6")
+        self.hex_viewer.tag_config("info", foreground="#ce9178")
+
+        # row 4: log
+        ttk.Label(f, text="运行日志:", font=("", 9, "bold")).grid(row=4, column=0, sticky=tk.W, pady=(4, 0))
+        self.hex_log = scrolledtext.ScrolledText(f, wrap=tk.WORD, font=("Consolas", 9),
+            bg="#1e1e1e", fg="#d4d4d4", height=6, state=tk.DISABLED)
+        self.hex_log.tag_config("ok", foreground="#4ec9b0")
+        self.hex_log.tag_config("warn", foreground="#ce9178")
+        self.hex_log.tag_config("err", foreground="#f44747")
+        self.hex_log.grid(row=5, column=0, columnspan=4, sticky=tk.NSEW, pady=4)
+        f.columnconfigure(1, weight=1)
+        f.rowconfigure(3, weight=1)
+
     # ----- Handlers -----
 
     def _on_set_clk(self):
@@ -462,6 +546,337 @@ class I2CTestApp:
             self.log_add(f"= {r}", "rx")
         except Exception as e:
             self.log_add(f"ERR: {e}", "err")
+
+    def _on_read_fw_version(self):
+        if not self._ck(): return
+        try:
+            dev = int(self.conn_dev_addr.get().strip(), 16)
+        except ValueError:
+            messagebox.showerror("Error", "设备地址必须是十六进制")
+            return
+        self.log_add(f"读取固件版本: dev=0x{dev:02X}", "tx")
+        try:
+            # REG_FW_VERSION_LOW  = 0x04
+            # REG_FW_VERSION_HIGH = 0x05
+            r_low = self.bridge.send_cmd(f"I2C_RD {dev:02X} 04 1")
+            r_high = self.bridge.send_cmd(f"I2C_RD {dev:02X} 05 1")
+            # Parse response: "OK: Read 0xXX reg 0xXX = HH"
+            low = int(r_low.strip().split()[-1], 16)
+            high = int(r_high.strip().split()[-1], 16)
+            ver = (high << 8) | low
+            kind = "Boot" if (ver & 0x8000) else "APP"
+            self.fw_version_str.set(f"{kind} 版本 0x{ver & 0x7FFF:04X}")
+            self.log_add(f"固件版本: {kind} 0x{ver & 0x7FFF:04X} (raw=0x{ver:04X})", "rx")
+        except Exception as e:
+            self.log_add(f"读取固件版本失败: {e}", "err")
+            self.fw_version_str.set("")
+
+    def _hex_sel(self, which):
+        path = filedialog.askopenfilename(
+            title="选择 " + ("BOOT" if which == "boot" else "APP") + ".HEX",
+            filetypes=[("HEX files", "*.hex"), ("All files", "*.*")])
+        if not path:
+            return
+        if which == "boot":
+            self.hex_boot_path.set(path)
+        else:
+            self.hex_app_path.set(path)
+        self._hex_load(which)
+
+    def _hex_toggle_param_lock(self):
+        st = tk.NORMAL if self.hex_param_lock.get() else "readonly"
+        self.hex_app_ver.configure(state=tk.NORMAL)
+        self.hex_app_ver.configure(state=st)
+        self.hex_app_base.configure(state=tk.NORMAL)
+        self.hex_app_base.configure(state=st)
+        self.hex_boot_param.configure(state=tk.NORMAL)
+        self.hex_boot_param.configure(state=st)
+
+    def _hex_display(self, data, start, tag="boot"):
+        tv = self.hex_viewer
+        tv.configure(state=tk.NORMAL)
+        label = "BOOT" if tag == "boot" else "APP"
+        tv.insert(tk.END, f"── {label} @ 0x{start:04X}, {len(data)} bytes ──\n", "label")
+        for i in range(0, len(data), 16):
+            chunk = data[i:i + 16]; addr = start + i
+            hex_str = " ".join(f"{b:02X}" for b in chunk)
+            ascii_str = "".join(chr(b) if 0x20 <= b < 0x7F else "." for b in chunk)
+            tv.insert(tk.END, f"{addr:04X}  ", "addr")
+            tv.insert(tk.END, f"{hex_str:<48}  {ascii_str}\n", "data")
+        tv.configure(state=tk.DISABLED)
+
+    def _hex_load(self, which):
+        path = self.hex_boot_path.get() if which == "boot" else self.hex_app_path.get()
+        if not path:
+            return
+        try:
+            data, start = self._hex_parse(path)
+            size = len(data)
+            end = start + size
+
+            if which == "boot":
+                # BOOT: must start at 0x0000, must not exceed parameter area (0x1E00)
+                if start != 0x0000:
+                    raise ValueError(f"BOOT 起始地址应为 0x0000，实际为 0x{start:04X}")
+                if end > 0x1E00:
+                    raise ValueError(f"BOOT 越界: 结束于 0x{end:04X}，不能超过 0x1E00 (参数区起始)")
+                self.hex_boot_data = (data, start)
+                self._hex_log(f"BOOT: {size} bytes @ 0x{start:04X} ~ 0x{end-1:04X}")
+            else:
+                try:
+                    app_base = int(self.hex_app_base.get().strip(), 16)
+                except ValueError:
+                    app_base = 0x2000
+                if start != app_base:
+                    raise ValueError(f"APP 起始地址应为 0x{app_base:04X}，实际为 0x{start:04X}")
+                if end > 0xFE00:
+                    raise ValueError(f"APP 越界: 结束于 0x{end:04X}，不能超过 0xFE00 (保留区起始)")
+                self.hex_app_data = (data, start)
+                self._hex_log(f"APP: {size} bytes @ 0x{start:04X} ~ 0x{end-1:04X}")
+
+            # Refresh viewer
+            self.hex_viewer.configure(state=tk.NORMAL)
+            self.hex_viewer.delete("1.0", tk.END)
+            if self.hex_boot_data:
+                self._hex_display(self.hex_boot_data[0], self.hex_boot_data[1], "boot")
+            if self.hex_app_data:
+                tv = self.hex_viewer
+                tv.insert(tk.END, "\n", "data")
+                self._hex_display(self.hex_app_data[0], self.hex_app_data[1], "app")
+        except Exception as e:
+            self._hex_log(f"载入失败: {e}")
+            messagebox.showerror("载入失败", str(e))
+
+    @staticmethod
+    def _crc16(data: bytes) -> int:
+        """Same CRC16 as HC32_CalCrc16: init=0xA28C, poly=0x8408, output inverted."""
+        crc = 0xA28C
+        for b in data:
+            crc ^= b
+            for _ in range(8):
+                if crc & 1:
+                    crc = (crc >> 1) ^ 0x8408
+                else:
+                    crc >>= 1
+        return (~crc) & 0xFFFF
+
+    def _hex_log(self, msg, tag=None):
+        self.hex_log.configure(state=tk.NORMAL)
+        self.hex_log.insert(tk.END, msg + "\n", tag)
+        self.hex_log.see(tk.END)
+        self.hex_log.configure(state=tk.DISABLED)
+
+    def _hex_parse(self, path):
+        """Parse Intel HEX file into {addr: bytes} and return sorted (addr, data) list."""
+        records = {}
+        base = 0
+        with open(path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                # :LLAAAATT[DD...]CC
+                rec_len = int(line[1:3], 16)
+                addr = int(line[3:7], 16)
+                rtype = int(line[7:9], 16)
+                data_str = line[9:9+rec_len*2]
+                if rtype == 0x00:
+                    full_addr = base + addr
+                    for i in range(rec_len):
+                        b = int(data_str[i*2:i*2+2], 16)
+                        records[full_addr + i] = b
+                elif rtype == 0x02:
+                    base = int(data_str, 16) << 4
+                elif rtype == 0x04:
+                    base = int(data_str, 16) << 16
+        if not records:
+            return []
+        addrs = sorted(records.keys())
+        start = addrs[0]
+        data = []
+        for a in addrs:
+            data.append(records[a])
+        return bytes(data), start
+
+    def _hex_calc_params(self):
+        """Calculate and display BOOT parameter table in viewer."""
+        if not self.hex_app_data:
+            messagebox.showwarning("警告", "请先载入 APP.HEX")
+            return
+        try:
+            app_ver = int(self.hex_app_ver.get().strip())
+        except ValueError:
+            messagebox.showerror("错误", "请输入有效 APP 版本号")
+            return
+        try:
+            param_base = int(self.hex_boot_param.get().strip(), 16)
+        except ValueError:
+            messagebox.showerror("错误", "请输入有效 BOOT 参数地址")
+            return
+
+        app_bin, app_start = self.hex_app_data
+
+        struct = __import__('struct')
+        MAGIC = 0x48434C42
+        STATE_IMAGE_VALID = 0x55AAAA55
+        APP_ADDR = 0x2000
+
+        app_crc = self._crc16(app_bin)
+        app_size = len(app_bin)
+
+        header = struct.pack('<IIIIIII',
+            MAGIC, STATE_IMAGE_VALID, APP_ADDR,
+            app_size, app_crc, 0, app_ver)
+        header_crc = self._crc16(header)
+        param_table = header + struct.pack('<I', header_crc)
+
+        # Display in viewer
+        tv = self.hex_viewer
+        tv.configure(state=tk.NORMAL)
+        tv.insert(tk.END, f"\n── BOOT参数表 @ 0x{param_base:04X}, 32 bytes ──\n", "label")
+        for i in range(0, len(param_table), 16):
+            chunk = param_table[i:i + 16]
+            addr = param_base + i
+            hex_str = " ".join(f"{b:02X}" for b in chunk)
+            tv.insert(tk.END, f"{addr:04X}  ", "addr")
+            tv.insert(tk.END, f"{hex_str:<48}\n", "data")
+
+        tv.insert(tk.END, "\n", "data")
+        tv.insert(tk.END, f"magic       = 0x{MAGIC:08X}  (\"HCLB\")\n", "info")
+        tv.insert(tk.END, f"state       = 0x{STATE_IMAGE_VALID:08X}  (IMAGE_VALID)\n", "info")
+        tv.insert(tk.END, f"app_addr    = 0x{APP_ADDR:08X}\n", "info")
+        tv.insert(tk.END, f"app_size    = {app_size} (0x{app_size:X})\n", "info")
+        tv.insert(tk.END, f"app_crc     = 0x{app_crc:04X}\n", "info")
+        tv.insert(tk.END, f"boot_count  = 0\n", "info")
+        tv.insert(tk.END, f"app_version = {app_ver}\n", "info")
+        tv.insert(tk.END, f"header_crc  = 0x{header_crc:04X}\n", "info")
+        tv.configure(state=tk.DISABLED)
+        self._hex_log("BOOT 参数表计算完成")
+
+    def _hex_merge(self):
+        if not self.hex_boot_data or not self.hex_app_data:
+            messagebox.showwarning("警告", "请先选择并载入 BOOT.HEX 和 APP.HEX")
+            return
+        try:
+            app_ver = int(self.hex_app_ver.get().strip())
+        except ValueError:
+            self._hex_log("错误: APP 版本号无效", "err")
+            return
+        try:
+            app_base = int(self.hex_app_base.get().strip(), 16)
+        except ValueError:
+            self._hex_log("错误: APP 基址无效", "err")
+            return
+        try:
+            param_base = int(self.hex_boot_param.get().strip(), 16)
+        except ValueError:
+            self._hex_log("错误: BOOT 参数地址无效", "err")
+            return
+
+        self.hex_log.configure(state=tk.NORMAL)
+        self.hex_log.delete("1.0", tk.END)
+        self.hex_log.configure(state=tk.DISABLED)
+
+        boot_bin, boot_start = self.hex_boot_data
+        app_bin, app_start = self.hex_app_data
+
+        # 1. check BOOT
+        if boot_start != 0x0000:
+            self._hex_log("✖ BOOT 程序区起始地址不是 0x0000", "err")
+            return
+        boot_end = boot_start + len(boot_bin)
+        if boot_end > param_base:
+            self._hex_log(f"✖ BOOT 程序区越界 (结束 0x{boot_end:04X}，参数区 0x{param_base:04X})", "err")
+            return
+        self._hex_log(f"✓ BOOT 程序区: {len(boot_bin)} bytes @ 0x{boot_start:04X}~0x{boot_end-1:04X}", "ok")
+
+        # 2. check APP
+        if app_start != app_base:
+            self._hex_log(f"✖ APP 起始地址应为 0x{app_base:04X}，实际 0x{app_start:04X}", "err")
+            return
+        app_end = app_start + len(app_bin)
+        if app_end > 0xFE00:
+            self._hex_log(f"✖ APP 越界 (结束 0x{app_end:04X}，最大 0xFE00)", "err")
+            return
+        self._hex_log(f"✓ APP 程序区: {len(app_bin)} bytes @ 0x{app_start:04X}~0x{app_end-1:04X}", "ok")
+
+        # 3. check param area
+        if param_base + 32 > 0x2000:
+            self._hex_log("✖ BOOT 参数地址越界", "err")
+            return
+        self._hex_log(f"✓ BOOT 参数区: 32 bytes @ 0x{param_base:04X}", "ok")
+
+        # Build parameter table
+        MAGIC = 0x48434C42
+        STATE_IMAGE_VALID = 0x55AAAA55
+        APP_ADDR = 0x2000
+        app_crc = self._crc16(app_bin)
+        app_size = len(app_bin)
+
+        header = struct.pack('<IIIIIII',
+            MAGIC, STATE_IMAGE_VALID, APP_ADDR,
+            app_size, app_crc, 0, app_ver)
+        header_crc = self._crc16(header)
+        param_table = header + struct.pack('<I', header_crc)
+
+        self._hex_log(f"✓ 参数表: magic=0x{MAGIC:08X} state=0x{STATE_IMAGE_VALID:08X}", "info")
+        self._hex_log(f"  app_addr=0x{APP_ADDR:04X} app_size={app_size}(0x{app_size:X})", "info")
+        self._hex_log(f"  app_crc=0x{app_crc:04X} app_version={app_ver} header_crc=0x{header_crc:04X}", "info")
+
+        # Merge
+        FLASH_SIZE = 0x10000
+        merged = bytearray([0xFF] * FLASH_SIZE)
+        for i, b in enumerate(boot_bin):
+            merged[boot_start + i] = b
+        for i, b in enumerate(app_bin):
+            merged[app_start + i] = b
+        for i, b in enumerate(param_table):
+            merged[param_base + i] = b
+        while len(merged) > 0 and merged[-1] == 0xFF:
+            merged.pop()
+
+        self._hex_log(f"✓ 合并完成: {len(merged)} bytes", "ok")
+
+        save_path = filedialog.asksaveasfilename(
+            title="保存合并 HEX",
+            defaultextension=".hex",
+            filetypes=[("HEX files", "*.hex"), ("All files", "*.*")])
+        if not save_path:
+            self._hex_log("用户取消保存")
+            return
+
+        entry = struct.unpack('<I', merged[4:8])[0] if len(merged) > 8 else 0x0000
+        self._hex_write_intel_hex(bytes(merged), save_path, entry=entry)
+        self._hex_log(f"✓ 已保存: {save_path}", "ok")
+
+    def _hex_write_intel_hex(self, data: bytes, path: str, bytes_per_line=16, entry=None):
+        """Write binary data as Intel HEX file."""
+        lines = []
+        # Extended linear address 0x0000
+        lines.append(":020000040000FA")
+        addr = 0
+        while addr < len(data):
+            chunk = data[addr:addr + bytes_per_line]
+            rec_len = len(chunk)
+            checksum = rec_len
+            checksum += (addr >> 8) & 0xFF
+            checksum += addr & 0xFF
+            checksum += 0x00
+            for b in chunk:
+                checksum += b
+            checksum = (~checksum + 1) & 0xFF
+            hex_str = f":{rec_len:02X}{addr:04X}00{chunk.hex().upper()}{checksum:02X}"
+            lines.append(hex_str)
+            addr += bytes_per_line
+        # Entry point (before EOF)
+        if entry is not None:
+            e = struct.pack('>I', entry)
+            cs = 4 + 0 + 0 + 5 + e[0] + e[1] + e[2] + e[3]
+            cs = (~cs + 1) & 0xFF
+            lines.append(f":04000005{e[0]:02X}{e[1]:02X}{e[2]:02X}{e[3]:02X}{cs:02X}")
+        lines.append(":00000001FF")
+        with open(path, "w") as f:
+            f.write("\n".join(lines) + "\n")
 
     def _on_connect(self):
         port = self.port_var.get().strip()
