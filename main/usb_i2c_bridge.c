@@ -14,6 +14,8 @@
 #include "tinyusb.h"
 #include "tusb_cdc_acm.h"
 #include "driver/i2c.h"
+#include "driver/ledc.h"
+#include "driver/gpio.h"
 #include "i2c_utils.h"
 #include "cmd_parser.h"
 #include "cmd_handler.h"
@@ -105,6 +107,42 @@ static void init_usb(void)
         &tinyusb_cdc_line_state_changed_callback));
 }
 
+/* 50 Hz square wave on GPIO27 via LEDC */
+static void init_pwm(void)
+{
+    ledc_timer_config_t timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .duty_resolution  = LEDC_TIMER_13_BIT,
+        .timer_num        = LEDC_TIMER_0,
+        .freq_hz          = 50,
+        .clk_cfg          = LEDC_USE_XTAL_CLK,
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&timer));
+
+    ledc_channel_config_t channel = {
+        .gpio_num       = 27,
+        .speed_mode     = LEDC_LOW_SPEED_MODE,
+        .channel        = LEDC_CHANNEL_0,
+        .timer_sel      = LEDC_TIMER_0,
+        .duty           = 1 << 12,  /* 50% duty = 4096 / 8192 */
+        .hpoint         = 0,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&channel));
+}
+
+/* GPIO23 pull-up input */
+static void init_gpio(void)
+{
+    gpio_config_t io_conf = {
+        .pin_bit_mask = 1ULL << 23,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+}
+
 void app_main(void)
 {
     init_nvs();
@@ -112,6 +150,8 @@ void app_main(void)
     cmd_parser_init();
     cmd_parser_set_callback(on_command);
     cmd_handler_init(i2c_bus, CONFIG_I2C_SDA_GPIO, CONFIG_I2C_SCL_GPIO);
+    init_pwm();
+    init_gpio();
     init_usb();
     while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
